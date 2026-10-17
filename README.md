@@ -96,10 +96,6 @@ devc .          # Installs .devcontainer/ + starts container
 > **Don't skip `devc`.** Zed reads `devcontainer.json` directly. In a folder that isn't a git repository, the template's `.git`
 > mounts make Zed fail with `bind source path does not exist: .../.git/config` until `devc` has removed them.
 
-> [!IMPORTANT]
-> Since the folder isn't a git repository, `devc` removes the read-only `.git` mounts from its `devcontainer.json` and prints a
-> warning. Docker refuses to start a container when a mount source is missing.
-
 Then clone repos inside the workspace, from the host or from the container:
 
 ```sh
@@ -138,7 +134,9 @@ Zed never rebuilds the container on its own, even when `devcontainer.json` chang
 - **`devc rebuild`** rebuilds the image and recreates the container. The volumes for shell history, Claude config, and `gh` login are kept. Docker reuses cached layers whose Dockerfile step hasn't changed (see [Dotfiles](#dotfiles)).
 - **`devc destroy`** deletes the container, volumes, and image, including your Claude login and settings for that project.
 
-After a rebuild, an open Zed window loses its connection to the old container and shows "container is not running". Reopen the project with **Project: Open Remote** -> **Connect Dev Container**.
+> [!NOTE]
+> After a rebuild, an open Zed window loses its connection to the old container and shows "container is not running". Reopen
+> the project with **Project: Open Remote** -> **Connect Dev Container**.
 
 ## Customizing the image
 
