@@ -2,6 +2,7 @@
 # (fish counterpart of .zshrc; PATH for ~/.local/bin, fnm and cargo is set via ENV)
 
 # Aliases
+alias fd fdfind
 alias sg ast-grep
 alias claude-yolo 'claude --dangerously-skip-permissions'
 alias ll 'ls -lah --color=auto'
