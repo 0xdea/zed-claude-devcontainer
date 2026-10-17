@@ -142,8 +142,9 @@ extract_mounts_to_file() {
   temp_file=$(mktemp)
 
   # Filter out default mounts by target path (immune to project name changes).
-  # /home/vscode and /workspace targets are defaults from older templates, before
-  # the user was renamed to zed and projects moved to /workspaces/<name>.
+  # /home/zed and /workspace targets are defaults from older templates: one that
+  # briefly renamed the user to zed, and those before projects moved to
+  # /workspaces/<name>.
   local custom_mounts
   custom_mounts=$(jq -c '
     .mounts // [] | map(

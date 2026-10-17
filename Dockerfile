@@ -73,19 +73,12 @@ RUN ARCH=$(dpkg --print-architecture) && \
     tar -xz -C /usr/local/lib/nvim --strip-components=1 && \
   ln -s /usr/local/lib/nvim/bin/nvim /usr/local/bin/nvim
 
-# Rename the base image's vscode user (UID/GID 1000, passwordless sudo) to zed
-RUN groupmod -n zed vscode && \
-  usermod -l zed -d /home/zed -m vscode && \
-  mv /etc/sudoers.d/vscode /etc/sudoers.d/zed && \
-  sed -i 's/^vscode /zed /' /etc/sudoers.d/zed && \
-  sed -i 's/^vscode:/zed:/' /etc/subuid /etc/subgid
-
 # Create directories and set ownership (combined for fewer layers)
-RUN mkdir -p /commandhistory /workspaces /home/zed/.claude /opt && \
+RUN mkdir -p /commandhistory /workspaces /home/vscode/.claude /opt && \
   touch /commandhistory/.bash_history && \
   touch /commandhistory/.zsh_history && \
   mkdir -p /commandhistory/fish && \
-  chown -R zed:zed /commandhistory /workspaces /home/zed/.claude /opt
+  chown -R vscode:vscode /commandhistory /workspaces /home/vscode/.claude /opt
 
 # System-wide shell init: Zed launches processes via docker exec with umask 0000,
 # so restore a sane umask; also add cargo bin to PATH for shells (ENV PATH below
@@ -94,18 +87,18 @@ RUN printf '%s\n' \
     '# devcontainer: restore sane umask (docker exec from Zed starts with 0000)' \
     'umask 022' \
     '# devcontainer: cargo/rustup binaries' \
-    'case ":$PATH:" in *":/home/zed/.cargo/bin:"*) ;; *) export PATH="/home/zed/.cargo/bin:$PATH" ;; esac' \
+    'case ":$PATH:" in *":/home/vscode/.cargo/bin:"*) ;; *) export PATH="/home/vscode/.cargo/bin:$PATH" ;; esac' \
     | tee -a /etc/zsh/zshenv /etc/bash.bashrc >/dev/null && \
   mkdir -p /etc/fish/conf.d && \
   printf '%s\n' \
     '# devcontainer: restore sane umask (docker exec from Zed starts with 0000)' \
     'umask 022' \
     '# devcontainer: cargo/rustup binaries' \
-    'fish_add_path -g /home/zed/.cargo/bin' \
+    'fish_add_path -g /home/vscode/.cargo/bin' \
     > /etc/fish/conf.d/container-env.fish
 
 # Make fish the login shell
-RUN usermod -s /usr/bin/fish zed
+RUN usermod -s /usr/bin/fish vscode
 
 # Set environment variables
 ENV DEVCONTAINER=true
@@ -116,10 +109,10 @@ ENV VISUAL=nano
 WORKDIR /workspaces
 
 # Switch to non-root user for remaining setup
-USER zed
+USER vscode
 
 # Set PATH early so claude and other user-installed binaries are available
-ENV PATH="/home/zed/.local/bin:$PATH"
+ENV PATH="/home/vscode/.local/bin:$PATH"
 
 # Install Claude Code natively with marketplace plugins
 RUN curl -fsSL https://claude.ai/install.sh | bash && \
@@ -135,7 +128,7 @@ RUN uv tool install ast-grep-cli
 
 # Install fnm (Fast Node Manager) and Node
 ARG NODE_VERSION=24
-ENV FNM_DIR="/home/zed/.fnm"
+ENV FNM_DIR="/home/vscode/.fnm"
 RUN curl -fsSL https://fnm.vercel.app/install | bash -s -- --install-dir "$FNM_DIR" --skip-shell && \
   export PATH="$FNM_DIR:$PATH" && \
   eval "$(fnm env)" && \
@@ -146,8 +139,8 @@ RUN curl -fsSL https://fnm.vercel.app/install | bash -s -- --install-dir "$FNM_D
 ENV PATH="$FNM_DIR/aliases/default/bin:$PATH"
 
 # Install Rust via rustup (stable, minimal profile + common components)
-ENV RUSTUP_HOME="/home/zed/.rustup" \
-  CARGO_HOME="/home/zed/.cargo"
+ENV RUSTUP_HOME="/home/vscode/.rustup" \
+  CARGO_HOME="/home/vscode/.cargo"
 RUN curl --proto '=https' --tlsv1.2 -fsSL https://sh.rustup.rs | \
   sh -s -- -y --no-modify-path --profile minimal --default-toolchain stable \
     --component rustfmt,clippy,rust-analyzer
@@ -163,24 +156,24 @@ RUN sh -c "$(curl -fsSL https://github.com/deluan/zsh-in-docker/releases/downloa
   -x
 
 # Copy zsh configuration
-COPY --chown=zed:zed .zshrc /home/zed/.zshrc.custom
+COPY --chown=vscode:vscode .zshrc /home/vscode/.zshrc.custom
 
 # Append custom zshrc to the main one
-RUN echo 'source ~/.zshrc.custom' >> /home/zed/.zshrc
+RUN echo 'source ~/.zshrc.custom' >> /home/vscode/.zshrc
 
 # Install dotfiles with GNU Stow (--no-folding so tools don't write into the repo)
 # The claude package is stowed by post_install.py, since ~/.claude is a volume mounted at runtime
 ARG DOTFILES_REPO=https://github.com/0xdea/dotfiles.git
-RUN git clone "$DOTFILES_REPO" /home/zed/.dotfiles && \
-  stow --no-folding -d /home/zed/.dotfiles -t /home/zed fish nvim tmux
+RUN git clone "$DOTFILES_REPO" /home/vscode/.dotfiles && \
+  stow --no-folding -d /home/vscode/.dotfiles -t /home/vscode fish nvim tmux
 
 # Copy fish configuration
-COPY --chown=zed:zed devcontainer.fish /home/zed/.config/fish/conf.d/devcontainer.fish
+COPY --chown=vscode:vscode devcontainer.fish /home/vscode/.config/fish/conf.d/devcontainer.fish
 
 # Keep fish history on the /commandhistory volume (directory symlink, since fish
 # replaces the history file atomically)
-RUN mkdir -p /home/zed/.local/share && \
-  ln -s /commandhistory/fish /home/zed/.local/share/fish
+RUN mkdir -p /home/vscode/.local/share && \
+  ln -s /commandhistory/fish /home/vscode/.local/share/fish
 
 # Copy post_install script
-COPY --chown=zed:zed post_install.py /opt/post_install.py
+COPY --chown=vscode:vscode post_install.py /opt/post_install.py
