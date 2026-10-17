@@ -16,7 +16,7 @@ A containerized development environment for running Claude Code with `bypassPerm
 
 zed-claude-devcontainer is based on [trailofbits/claude-code-devcontainer](https://github.com/trailofbits/claude-code-devcontainer), licensed under the Apache License 2.0. Main changes from upstream:
 
-- **Zed support**: Zed starts processes in the container via `docker exec` with umask `0000`, which leaves newly created files world-writable. The image restores umask `022` in the system-wide init for bash, zsh, and fish.
+- **Zed support**: Zed starts processes in the container via `docker exec`, and some Docker engines, OrbStack among them, give `docker exec` processes umask `0000`, which leaves newly created files world-writable. The image restores umask `022` in the system-wide init for bash, zsh, and fish. Processes that don't start a shell keep `0000`; see [Troubleshooting](#files-on-the-host-are-world-writable).
 - **`postCreateCommand` fix**: Zed mangles string-form lifecycle commands ([zed-industries/zed#62964](https://github.com/zed-industries/zed/issues/62964)), so `post_install.py` never ran. The command now uses the equivalent exec (array) form, which works in Zed, VS Code, and the devcontainers CLI (proposed upstream in [#56](https://github.com/trailofbits/claude-code-devcontainer/pull/56)).
 - **Git settings in `containerEnv`**: `core.checkStat=minimal` and `core.trustctime=false` are set through `GIT_CONFIG_COUNT`/`GIT_CONFIG_KEY_*`/`GIT_CONFIG_VALUE_*`, so git doesn't treat bind-mounted files as modified just because their inode or ctime metadata differs from what the host recorded. Environment variables are used because the host `~/.gitconfig` is mounted read-only.
 - **fish as the default shell**: fish is the login shell, `$SHELL`, and the `devc shell` default, with the `.zshrc` aliases and fzf integration ported to `devcontainer.fish` and its history kept on the `/commandhistory` volume. Claude Code's Bash tool stays on zsh via `CLAUDE_CODE_SHELL`.
@@ -405,6 +405,36 @@ uv run script.py              # Run a script
 uv add package                # Add project dependency
 uv run --with requests py.py  # Ad-hoc dependency
 ```
+
+### npm can't install a recently published version
+
+To reduce exposure to compromised releases, npm in the container only installs versions published at least a day ago (`NPM_CONFIG_MIN_RELEASE_AGE=1`). If a dependency needs a newer version, `npm install` fails with no matching version, and `npm audit fix` keeps a vulnerable version when its fix is too recent. To allow it for one command, or to exempt a package:
+
+```bash
+npm install --min-release-age=0
+npm install --min-release-age-exclude=<package>
+```
+
+### Files on the host are world-writable
+
+On Docker engines that give `docker exec` processes umask `0000` (OrbStack does), processes that don't start a shell create world-writable files. That includes Zed's remote server, which saves your edits, and what it launches, such as language servers, `cargo check`, and Zed's git operations. Shells in the container restore umask `022`, so files created from a terminal are fine. The project folder is shared with the host, so these files are writable by other local users there too. Git only records the executable bit, so the extra permissions never reach a remote.
+
+To check a project from the host, and to remove group and other write access:
+
+```bash
+find <project> \( -type f -o -type d \) -perm -0002
+find <project> \( -type f -o -type d \) -perm -0002 -exec chmod go-w {} +
+```
+
+The `-type` filter skips symlinks, which `chmod` would otherwise follow. To see what your engine does, run `docker exec <container> sh -c umask`.
+
+### Git can't write `.git/config` inside the container
+
+The project's `.git/config` and `.git/hooks` are mounted read-only, so code in the container can't plant config or hooks that later run on your host. Commands that write repository config fail inside the container, for example `git remote add`, `git config` without `--global`, or `git push -u`. Run them on the host instead.
+
+### Container doesn't see host changes to `.git/config` or `~/.gitconfig`
+
+Both are mounted as single files. Git saves config by writing a new file and renaming it over the old one, and a single-file bind mount stays attached to the old file. After changing either on the host, for example adding a remote or running `git config --global`, run `devc rebuild` to pick up the change.
 
 ## Development
 
