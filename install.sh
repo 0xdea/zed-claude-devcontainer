@@ -143,15 +143,16 @@ extract_mounts_to_file() {
 
   temp_file=$(mktemp)
 
-  # Filter out default mounts by target path (immune to project name changes)
+  # Filter out default mounts by target path (immune to project name changes).
+  # /home/vscode targets are defaults from templates before the user was renamed to zed.
   local custom_mounts
   custom_mounts=$(jq -c '
     .mounts // [] | map(
       select(
         (contains("target=/commandhistory,") | not) and
-        (contains("target=/home/vscode/.claude,") | not) and
-        (contains("target=/home/vscode/.config/gh,") | not) and
-        (contains("target=/home/vscode/.gitconfig,") | not) and
+        (test("target=/home/(zed|vscode)/\\.claude,") | not) and
+        (test("target=/home/(zed|vscode)/\\.config/gh,") | not) and
+        (test("target=/home/(zed|vscode)/\\.gitconfig,") | not) and
         (contains("target=/workspace/.devcontainer,") | not)
       )
     ) | if length > 0 then . else empty end
