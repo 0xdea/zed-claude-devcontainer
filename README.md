@@ -41,10 +41,12 @@ Running Claude with `bypassPermissions` on your host machine is risky—it can e
 
 - **Docker runtime** (one of):
   - [Docker Desktop](https://docker.com/products/docker-desktop) - ensure it's running
-  - [OrbStack](https://orbstack.dev/)
-  - [Colima](https://github.com/abiosoft/colima): `brew install colima docker && colima start`
+  - [OrbStack](https://orbstack.dev/) - recommended for Apple Silicon, faster than Docker Desktop
+  - [Colima](https://github.com/abiosoft/colima): `brew install colima docker && colima start` - untested
 
-- **For terminal workflows** (one-time install):
+- **[Zed](https://zed.dev/)** with dev container support (optional; you can also work from the terminal)
+
+- **`devc` and the devcontainers CLI** (one-time install, needed with or without Zed):
 
   ```bash
   npm install -g @devcontainers/cli
@@ -85,56 +87,71 @@ Verify with `colima status` - should show "macOS Virtualization.Framework" and "
 
 ## Quick Start
 
-Choose the pattern that fits your workflow:
+Set up every project with `devc` on the host first, then open it in Zed. `devc` adapts `devcontainer.json` to the folder and runs safety checks that Zed doesn't. Choose the pattern that fits your workflow:
 
-### Pattern A: Per-Project Container (Isolated)
+### Pattern A: Per-Project Container (Git Repository)
 
 Each project gets its own container with independent volumes. Best for one-off reviews or when you need isolation between projects.
-
-**Terminal:**
 
 ```bash
 git clone <untrusted-repo>
 cd untrusted-repo
-devc .          # Installs template + starts container
-devc shell      # Opens shell in container
+devc .          # Installs .devcontainer/ + starts container
 ```
 
-**Zed:**
+The project's `.git/config` and `.git/hooks` are mounted read-only, so code in the container can't plant git hooks or config that would run on your host.
 
-1. Set up the devcontainer (choose one):
-
-   ```bash
-   # Option A: Use devc (recommended)
-   devc .
-
-   # Option B: Clone manually
-   git clone https://github.com/0xdea/zed-claude-devcontainer .devcontainer/
-   ```
-
-2. Open **your project folder** in Zed, then either:
-   - Choose **Open in Container** when Zed detects `.devcontainer/devcontainer.json` and prompts you, or
-   - Open the command palette (`Cmd+Shift+P` on Mac, `Ctrl+Shift+P` on Linux), run **Project: Open Remote**, and select **Connect Dev Container**
-
-Zed doesn't rebuild the container when `devcontainer.json` changes. Run `devc rebuild` (or stop the container) and reopen the project.
-
-### Pattern B: Shared Workspace Container (Grouped)
+### Pattern B: Shared Workspace Container (Not a Git Repository)
 
 A parent directory contains the devcontainer config, and you clone multiple repos inside. Shared volumes across all repos. Best for client engagements, related repositories, or ongoing work.
 
 ```bash
-# Create workspace for a client engagement
 mkdir -p ~/sandbox/client-name
 cd ~/sandbox/client-name
-devc .          # Install template + start container
-devc shell      # Opens shell in container
+devc .          # Installs .devcontainer/ + starts container
+```
 
-# Inside container:
+Since the folder isn't a git repository, `devc` removes the read-only `.git` mounts from its `devcontainer.json` and prints a warning. Docker refuses to start a container when a mount source is missing.
+
+Then clone repos inside the workspace, from the host or from the container:
+
+```bash
 git clone <client-repo-1>
 git clone <client-repo-2>
-cd client-repo-1
-claude          # Ready to work
 ```
+
+The repos inside the workspace don't get the read-only `.git` protection; only the workspace root does. If you later run `git init` in the workspace itself, run `devc template .` to restore the `.git` mounts.
+
+> **Don't skip `devc`.** Zed reads `devcontainer.json` directly. In a folder that isn't a git repository, the template's `.git` mounts make Zed fail with `bind source path does not exist: .../.git/config` until `devc` has removed them.
+
+### Opening the Project in Zed
+
+1. Open the **project folder** (the one containing `.devcontainer/`) in Zed.
+2. Choose **Open in Container** when Zed detects `.devcontainer/devcontainer.json` and prompts you. Alternatively, open the command palette (`Cmd+Shift+P` on Mac, `Ctrl+Shift+P` on Linux), run **Project: Open Remote**, and select **Connect Dev Container**.
+
+Zed attaches to the container `devc` started, and its terminal and language servers run inside the container.
+
+### Terminal Only
+
+Zed is optional. `devc shell` opens a fish shell in the container, where you can run `claude` directly.
+
+## Updating and Rebuilding
+
+Zed never rebuilds the container on its own, even when `devcontainer.json` changes. Run these on the host from the project folder:
+
+| Goal                                                                         | Commands                                         |
+| ---------------------------------------------------------------------------- | ------------------------------------------------ |
+| Pick up a new version of this template                                       | `devc update`, `devc template .`, `devc rebuild` |
+| Apply your own edits to `.devcontainer/`, or a new `CLAUDE_CODE_OAUTH_TOKEN` | `devc rebuild`                                   |
+| Upgrade Claude Code only                                                     | `devc upgrade`                                   |
+| Start over with empty volumes                                                | `devc destroy`, then `devc .`                    |
+
+- **`devc update`** pulls the latest version of `devc` and the template into `~/.claude-devcontainer`. It doesn't touch your projects.
+- **`devc template .`** asks before overwriting the project's `.devcontainer/`, then copies the new template in. It keeps mounts you added with `devc mount`, and removes the `.git` mounts again in a non-git workspace. Your other edits to `.devcontainer/` are overwritten.
+- **`devc rebuild`** rebuilds the image and recreates the container. The volumes for shell history, Claude config, and `gh` login are kept.
+- **`devc destroy`** deletes the container, volumes, and image, including your Claude login and settings for that project.
+
+After a rebuild, an open Zed window loses its connection to the old container and shows "container is not running". Reopen the project with **Project: Open Remote** → **Connect Dev Container**.
 
 ## Token-Based Auth (Headless)
 
