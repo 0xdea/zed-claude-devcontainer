@@ -14,6 +14,12 @@ A containerized development environment for running [Claude Code](https://claude
 `bypassPermissions` enabled, with support for [Zed](https://zed.dev). Designed for security audit workflows and Rust
 development.
 
+> [!TIP]
+> See also [trailofbits/claude-code-devcontainer](https://github.com/trailofbits/claude-code-devcontainer)'s README for
+> the original template's documentation, which is more general and covers: Colima Apple Silicon optimizations,
+> token-based authentication (headless), CLI helper commands, session sync for `/insights`, file sharing, network
+> isolation, threat model, container details, and troubleshooting.
+
 ## About this fork
 
 This project is based on
@@ -57,12 +63,6 @@ Apache License 2.0. Main changes from upstream:
 > find <project> \( -type f -o -type d \) -perm -0002
 > find <project> \( -type f -o -type d \) -perm -0002 -exec chmod go-w {} +
 > ```
-
-> [!TIP]
-> See also [trailofbits/claude-code-devcontainer](https://github.com/trailofbits/claude-code-devcontainer)'s README for
-> the original template's documentation, which is more general and covers: Colima Apple Silicon optimizations,
-> token-based authentication (headless), CLI helper commands, session sync for `/insights`, file sharing, network
-> isolation, threat model, container details, and troubleshooting.
 
 ## Why use this?
 
