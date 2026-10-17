@@ -103,6 +103,16 @@ def setup_claude_settings():
 
     settings_file = claude_dir / "settings.json"
 
+    # A symlink comes from the stowed claude dotfiles: writing to it would modify
+    # the dotfiles checkout, so leave the setting to the dotfiles
+    if settings_file.is_symlink():
+        print(
+            f"[post_install] {settings_file} comes from dotfiles, skipping "
+            "(set permissions.defaultMode there to enable bypassPermissions)",
+            file=sys.stderr,
+        )
+        return
+
     # Load existing settings or start fresh
     settings = {}
     if settings_file.exists():
@@ -124,7 +134,9 @@ def setup_tmux_config():
     """Configure tmux with 200k history, mouse support, and vi keys."""
     tmux_conf = Path.home() / ".tmux.conf"
 
-    if tmux_conf.exists():
+    # tmux prefers ~/.tmux.conf, so writing it would hide an XDG config
+    xdg_config = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
+    if any(p.exists() for p in (tmux_conf, xdg_config / "tmux" / "tmux.conf")):
         print("[post_install] Tmux config exists, skipping", file=sys.stderr)
         return
 
@@ -346,12 +358,14 @@ def main():
     """Run all post-install configuration."""
     print("[post_install] Starting post-install configuration...", file=sys.stderr)
 
+    # Ownership first, since the other steps write to the volumes; claude dotfiles
+    # before anything else writes to ~/.claude, so stow finds no conflicting files
+    fix_directory_ownership()
+    setup_claude_dotfiles()
     setup_onboarding_bypass()
     setup_claude_settings()
     setup_tmux_config()
-    fix_directory_ownership()
     setup_fish_history()
-    setup_claude_dotfiles()
     setup_global_gitignore()
 
     print("[post_install] Configuration complete!", file=sys.stderr)
