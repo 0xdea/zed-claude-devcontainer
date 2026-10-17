@@ -408,15 +408,15 @@ uv run --with requests py.py  # Ad-hoc dependency
 
 ## Development
 
-Build the image manually:
+The template files live at the top of this repository, not in a `.devcontainer/` folder, so the devcontainers CLI can't use the repository itself as a workspace. Install your working copy into a scratch folder instead. Run `./install.sh` from the working copy, since the `devc` command copies the template from `~/.claude-devcontainer`:
 
 ```bash
-devcontainer build --workspace-folder .
+mkdir -p ~/devc-test
+git -C ~/devc-test init           # skip to test a non-git workspace
+./install.sh template ~/devc-test
+cd ~/devc-test
+devc up                           # builds the image and starts the container
+devc shell
 ```
 
-Test the container:
-
-```bash
-devcontainer up --workspace-folder .
-devcontainer exec --workspace-folder . fish
-```
+After each change, run `./install.sh template ~/devc-test` again (answer `y`) and then `devc rebuild` in the scratch folder. To test changes to `install.sh` itself, run the working copy's script, for example `~/path/to/repo/install.sh rebuild`. When you're done, run `devc destroy -f` in the scratch folder to remove its container, volumes, and image.
