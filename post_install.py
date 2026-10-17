@@ -7,8 +7,6 @@ Runs on container creation to set up:
 - Tmux configuration (200k history, mouse support)
 - Directory ownership fixes for mounted volumes
 - Claude dotfiles (stowed from ~/.dotfiles)
-
-Modified by raptor, 2026: Zed support.
 """
 
 import contextlib

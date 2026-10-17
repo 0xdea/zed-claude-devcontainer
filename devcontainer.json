@@ -1,4 +1,3 @@
-// Modified by raptor, 2026: Zed support.
 {
   "$schema": "https://raw.githubusercontent.com/devcontainers/spec/main/schemas/devContainer.base.schema.json",
   "name": "Claude Code Sandbox",
