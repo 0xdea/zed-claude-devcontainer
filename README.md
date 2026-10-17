@@ -90,27 +90,23 @@ devc .          # Installs template + starts container
 devc shell      # Opens shell in container
 ```
 
-**VS Code / Cursor:**
+**Zed:**
 
-> **Not recommended for untrusted code.** Container code can execute commands on your host through this path, by design. See [Threat Model](#threat-model).
-
-1. Install the Dev Containers extension:
-   - VS Code: `ms-vscode-remote.remote-containers`
-   - Cursor: `anysphere.remote-containers`
-
-2. Set up the devcontainer (choose one):
+1. Set up the devcontainer (choose one):
 
    ```bash
    # Option A: Use devc (recommended)
    devc .
 
    # Option B: Clone manually
-   git clone https://github.com/0xdea/sed-claude-devcontainer .devcontainer/
+   git clone https://github.com/0xdea/zed-claude-devcontainer .devcontainer/
    ```
 
-3. Open **your project folder** in VS Code, then:
-   - Press `Cmd+Shift+P` (Mac) or `Ctrl+Shift+P` (Windows/Linux)
-   - Type "Reopen in Container" and select **Dev Containers: Reopen in Container**
+2. Open **your project folder** in Zed, then either:
+   - Choose **Open in Container** when Zed detects `.devcontainer/devcontainer.json` and prompts you, or
+   - Open the command palette (`Cmd+Shift+P` on Mac, `Ctrl+Shift+P` on Linux), run **Project: Open Remote**, and select **Connect Dev Container**
+
+Zed doesn't rebuild the container when `devcontainer.json` changes. Run `devc rebuild` (or stop the container) and reopen the project.
 
 ### Pattern B: Shared Workspace Container (Grouped)
 
@@ -184,11 +180,9 @@ Devcontainers are auto-discovered via Docker labels — no need to know containe
 
 ## File Sharing
 
-### VS Code / Cursor
+Files you put in the project folder on the host are visible in the container under `/workspace/`, since the project is bind-mounted.
 
-Drag files from your host into the VS Code Explorer panel — they are copied into `/workspace/` automatically. No configuration needed.
-
-### Terminal: `devc mount`
+### `devc mount`
 
 To make a host directory available inside the container:
 
@@ -264,7 +258,8 @@ sudo iptables -A OUTPUT -j DROP
 
 - **Container escape.** A container is containment, not a strong security boundary. Escape should be hard, not impossible.
 - **Deferred escape.** Container-planted code can get executed on the host, when the user performs some action on the host. Planting files under shared `.git` folder is an example escape path.
-- **VS Code "Reopen in Container".** The command runs an extension host _inside_ the container wired to your editor over RPC, and container code can drive host-only editor commands (`terminal.newLocal` then `sendSequence`) to run shell commands on your host. This is [Microsoft's design](https://github.com/microsoft/vscode-remote-release/issues/6608#issuecomment-1112960548), not a bug here ([how it works](https://blog.theredguild.org/leveraging-vscode-internals-to-escape-containers/)).
+- **Zed dev container extensions.** Extensions listed under `customizations.zed.extensions` in `devcontainer.json` are also installed in your local Zed ([Zed docs](https://zed.dev/docs/dev-containers)). The bundled template lists none; review this field before opening a project whose `.devcontainer/` you didn't create.
+- **Editor attack surface.** Zed on the host talks to a server running inside the container. Treat that channel as untrusted input to your host editor, not as an isolation boundary.
 - **Network rules overwrite.** Container has `NET_ADMIN` and passwordless sudo, its user can change the iptables rules dynamically.
 - **Exfiltration of in-container credentials.** Claude, GitHub, and other tokens provided to container are simply accessible inside it.
 
