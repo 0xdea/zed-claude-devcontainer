@@ -245,8 +245,13 @@ The image clones `DOTFILES_REPO` at build time and stows it into `~/` with GNU S
   your home directory, such as `fish/.config/fish/config.fish`. If one is missing, the build fails with
   `stow: ERROR: The stow directory ... does not contain package nvim`. To stow a different set, edit the `stow` line in
   the `Dockerfile`.
+- **tmux configuration.** If the `tmux` package provides neither `~/.tmux.conf` nor `~/.config/tmux/tmux.conf`,
+  `post_install.py` writes a default `~/.tmux.conf`.
 - **Optional `claude` package.** If present, `post_install.py` stows it into `~/.claude` when the container is created,
-  since `~/.claude` is a volume that would hide anything stowed at build time.
+  since `~/.claude` is a volume that would hide anything stowed at build time. If the package includes `settings.json`,
+  `post_install.py` leaves it alone instead of enabling `bypassPermissions`, so set `"permissions": {"defaultMode":
+  "bypassPermissions"}` in it yourself. A `settings.json` already in an existing `~/.claude` volume blocks stowing the
+  package; delete it once, or run `devc destroy`.
 - **Public HTTPS URL.** The image build has no access to your SSH keys, so the repo must be cloneable without
   credentials.
 - **Updates aren't picked up by `devc rebuild`.** Docker caches the clone step, so new commits in your dotfiles repo
