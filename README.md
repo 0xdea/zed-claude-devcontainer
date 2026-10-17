@@ -10,8 +10,9 @@
 >
 > -- Matthew Garrett
 
-A containerized development environment for running Claude Code with `bypassPermissions` enabled, with support for
-[Zed](https://zed.dev). Designed for security audit workflows and Rust development.
+A containerized development environment for running [Claude Code](https://claude.com/product/claude-code) with
+`bypassPermissions` enabled, with support for [Zed](https://zed.dev). Designed for security audit workflows and Rust
+development.
 
 ## About this fork
 
