@@ -80,18 +80,18 @@ RUN mkdir -p /commandhistory /workspaces /home/vscode/.claude /opt && \
   mkdir -p /commandhistory/fish && \
   chown -R vscode:vscode /commandhistory /workspaces /home/vscode/.claude /opt
 
-# System-wide shell init: Zed launches processes via docker exec with umask 0000,
-# so restore a sane umask; also add cargo bin to PATH for shells (ENV PATH below
-# covers non-shell processes)
+# System-wide shell init: some engines (e.g. OrbStack) start docker exec processes,
+# such as Zed's, with umask 0000, so restore a sane umask; also add cargo bin to PATH
+# for shells (ENV PATH below covers non-shell processes)
 RUN printf '%s\n' \
-    '# devcontainer: restore sane umask (docker exec from Zed starts with 0000)' \
+    '# devcontainer: restore sane umask (docker exec gets 0000 on some engines)' \
     'umask 022' \
     '# devcontainer: cargo/rustup binaries' \
     'case ":$PATH:" in *":/home/vscode/.cargo/bin:"*) ;; *) export PATH="/home/vscode/.cargo/bin:$PATH" ;; esac' \
     | tee -a /etc/zsh/zshenv /etc/bash.bashrc >/dev/null && \
   mkdir -p /etc/fish/conf.d && \
   printf '%s\n' \
-    '# devcontainer: restore sane umask (docker exec from Zed starts with 0000)' \
+    '# devcontainer: restore sane umask (docker exec gets 0000 on some engines)' \
     'umask 022' \
     '# devcontainer: cargo/rustup binaries' \
     'fish_add_path -g /home/vscode/.cargo/bin' \
