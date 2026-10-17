@@ -1,5 +1,15 @@
 # zed-claude-devcontainer
 
+[![](https://img.shields.io/github/stars/0xdea/zed-claude-devcontainer.svg?style=flat&color=yellow)](https://github.com/0xdea/zed-claude-devcontainer)
+[![](https://img.shields.io/github/forks/0xdea/zed-claude-devcontainer.svg?style=flat&color=green)](https://github.com/0xdea/zed-claude-devcontainer)
+[![](https://img.shields.io/github/watchers/0xdea/zed-claude-devcontainer.svg?style=flat&color=red)](https://github.com/0xdea/zed-claude-devcontainer)
+[![](https://img.shields.io/badge/twitter-%400xdea-blue.svg)](https://twitter.com/0xdea)
+[![](https://img.shields.io/badge/mastodon-%40raptor-purple.svg)](https://infosec.exchange/@raptor)
+
+> "Our robot overlords will use NUL-terminated strings."
+>
+> -- Matthew Garrett
+
 A containerized development environment for running Claude Code with `bypassPermissions` enabled, with support for Zed. Designed for security audit workflows and Rust development.
 
 ## About This Fork
