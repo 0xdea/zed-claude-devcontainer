@@ -38,7 +38,7 @@ Running Claude with `bypassPermissions` on your host machine is risky—it can e
 
   ```bash
   npm install -g @devcontainers/cli
-  git clone https://github.com/0xdea/claude-code-devcontainer ~/.claude-devcontainer
+  git clone https://github.com/0xdea/zed-claude-devcontainer ~/.claude-devcontainer
   ~/.claude-devcontainer/install.sh self-install
   ```
 
@@ -63,11 +63,11 @@ colima start \
 
 Adjust `--cpu` and `--memory` based on your Mac (e.g., 6/16 for Pro, 8/32 for Max).
 
-| Option | Benefit |
-|--------|---------|
-| `--vm-type vz` | Apple Virtualization.framework (faster than QEMU) |
-| `--mount-type virtiofs` | 5-10x faster file I/O than sshfs |
-| `--vz-rosetta` | Run x86 containers via Rosetta |
+| Option                  | Benefit                                           |
+| ----------------------- | ------------------------------------------------- |
+| `--vm-type vz`          | Apple Virtualization.framework (faster than QEMU) |
+| `--mount-type virtiofs` | 5-10x faster file I/O than sshfs                  |
+| `--vz-rosetta`          | Run x86 containers via Rosetta                    |
 
 Verify with `colima status` - should show "macOS Virtualization.Framework" and "virtiofs".
 
@@ -105,7 +105,7 @@ devc shell      # Opens shell in container
    devc .
 
    # Option B: Clone manually
-   git clone https://github.com/0xdea/claude-code-devcontainer .devcontainer/
+   git clone https://github.com/0xdea/sed-claude-devcontainer .devcontainer/
    ```
 
 3. Open **your project folder** in VS Code, then:
@@ -254,6 +254,7 @@ sudo iptables -A OUTPUT -j DROP
 ## Threat Model
 
 **Protects against:**
+
 - Claude with `bypassPermissions` running wild during a session.
 - Direct access to your SSH key material and other credentials
 - Unrestricted, direct access to the whole filesystem
@@ -263,7 +264,7 @@ sudo iptables -A OUTPUT -j DROP
 
 - **Container escape.** A container is containment, not a strong security boundary. Escape should be hard, not impossible.
 - **Deferred escape.** Container-planted code can get executed on the host, when the user performs some action on the host. Planting files under shared `.git` folder is an example escape path.
-- **VS Code "Reopen in Container".** The command runs an extension host *inside* the container wired to your editor over RPC, and container code can drive host-only editor commands (`terminal.newLocal` then `sendSequence`) to run shell commands on your host. This is [Microsoft's design](https://github.com/microsoft/vscode-remote-release/issues/6608#issuecomment-1112960548), not a bug here ([how it works](https://blog.theredguild.org/leveraging-vscode-internals-to-escape-containers/)).
+- **VS Code "Reopen in Container".** The command runs an extension host _inside_ the container wired to your editor over RPC, and container code can drive host-only editor commands (`terminal.newLocal` then `sendSequence`) to run shell commands on your host. This is [Microsoft's design](https://github.com/microsoft/vscode-remote-release/issues/6608#issuecomment-1112960548), not a bug here ([how it works](https://blog.theredguild.org/leveraging-vscode-internals-to-escape-containers/)).
 - **Network rules overwrite.** Container has `NET_ADMIN` and passwordless sudo, its user can change the iptables rules dynamically.
 - **Exfiltration of in-container credentials.** Claude, GitHub, and other tokens provided to container are simply accessible inside it.
 
@@ -271,15 +272,15 @@ sudo iptables -A OUTPUT -j DROP
 
 ## Container Details
 
-| Component | Details |
-|-----------|---------|
-| Base | Ubuntu 24.04, Node.js 24, Python 3.13 + uv, Rust (rustup), fish (default) + zsh |
-| User | `vscode` (passwordless sudo), working dir `/workspace` |
-| Tools | `rg`, `fd`, `tmux`, `fzf`, `delta`, `nvim`, `stow`, `iptables`, `ipset` |
-| Volumes (survive rebuilds) | Command history (`/commandhistory`), Claude config (`~/.claude`), GitHub CLI auth (`~/.config/gh`) |
-| Host mounts | `~/.gitconfig`, `.devcontainer/`, `.git/config`, `.git/hooks/` (all read-only) |
-| Dotfiles | [0xdea/dotfiles](https://github.com/0xdea/dotfiles) cloned to `~/.dotfiles` and stowed (`fish`, `nvim`, `tmux`, `claude`); override with the `DOTFILES_REPO` build arg |
-| Auto-configured | `bypassPermissions` mode (via `post_install.py`), skills from [anthropics/skills](https://github.com/anthropics/skills) + [trailofbits/skills](https://github.com/trailofbits/skills) + [trailofbits/skills-curated](https://github.com/trailofbits/skills-curated), git-delta |
+| Component                  | Details                                                                                                                                                                                                                                                                        |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Base                       | Ubuntu 24.04, Node.js 24, Python 3.13 + uv, Rust (rustup), fish (default) + zsh                                                                                                                                                                                                |
+| User                       | `vscode` (passwordless sudo), working dir `/workspace`                                                                                                                                                                                                                         |
+| Tools                      | `rg`, `fd`, `tmux`, `fzf`, `delta`, `nvim`, `stow`, `iptables`, `ipset`                                                                                                                                                                                                        |
+| Volumes (survive rebuilds) | Command history (`/commandhistory`), Claude config (`~/.claude`), GitHub CLI auth (`~/.config/gh`)                                                                                                                                                                             |
+| Host mounts                | `~/.gitconfig`, `.devcontainer/`, `.git/config`, `.git/hooks/` (all read-only)                                                                                                                                                                                                 |
+| Dotfiles                   | [0xdea/dotfiles](https://github.com/0xdea/dotfiles) cloned to `~/.dotfiles` and stowed (`fish`, `nvim`, `tmux`, `claude`); override with the `DOTFILES_REPO` build arg                                                                                                         |
+| Auto-configured            | `bypassPermissions` mode (via `post_install.py`), skills from [anthropics/skills](https://github.com/anthropics/skills) + [trailofbits/skills](https://github.com/trailofbits/skills) + [trailofbits/skills-curated](https://github.com/trailofbits/skills-curated), git-delta |
 
 Volumes are stored outside the container, so your shell history, Claude settings, and `gh` login persist even after `devc rebuild`. Host `~/.gitconfig` is mounted read-only for git identity.
 
