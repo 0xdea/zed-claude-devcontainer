@@ -273,7 +273,7 @@ Devcontainers are auto-discovered via Docker labels — no need to know containe
 
 ## File Sharing
 
-Files you put in the project folder on the host are visible in the container under `/workspace/`, since the project is bind-mounted.
+Files you put in the project folder on the host are visible in the container under `/workspaces/<folder name>/`, since the project is bind-mounted.
 
 ### `devc mount`
 
@@ -363,7 +363,7 @@ sudo iptables -A OUTPUT -j DROP
 | Component                  | Details                                                                                                                                                                                                                                                                        |
 | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Base                       | Ubuntu 24.04, Node.js 24, Python 3.13 + uv, Rust (rustup), fish (default) + zsh                                                                                                                                                                                                |
-| User                       | `zed` (passwordless sudo), working dir `/workspace`                                                                                                                                                                                                                            |
+| User                       | `zed` (passwordless sudo), working dir `/workspaces/<folder name>`                                                                                                                                                                                                             |
 | Tools                      | `rg`, `fd`, `tmux`, `fzf`, `delta`, `nvim`, `stow`, `iptables`, `ipset`                                                                                                                                                                                                        |
 | Volumes (survive rebuilds) | Command history (`/commandhistory`), Claude config (`~/.claude`), GitHub CLI auth (`~/.config/gh`)                                                                                                                                                                             |
 | Host mounts                | `~/.gitconfig`, `.devcontainer/`, `.git/config`, `.git/hooks/` (all read-only)                                                                                                                                                                                                 |

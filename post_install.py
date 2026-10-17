@@ -259,7 +259,7 @@ node_modules/
 
     # Create local git config that includes host config and sets excludesfile + delta
     # Delta config is included here so it works even if host doesn't have it configured
-    # safe.directory takes no path glob, and repos can sit anywhere under /workspace
+    # safe.directory takes no path glob, and repos can sit anywhere under /workspaces
     local_config = f"""\
 # Container-local git config
 # Includes host config (mounted read-only) and adds container settings

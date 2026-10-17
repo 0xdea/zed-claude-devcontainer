@@ -114,8 +114,7 @@ strip_git_mounts_if_not_repo() {
   local updated
   updated=$(jq '
     .mounts = ((.mounts // []) | map(select(
-      (contains("target=/workspace/.git/config") or
-       contains("target=/workspace/.git/hooks")) | not
+      test("target=/workspace(s/[^/,]+)?/\\.git/(config|hooks)") | not
     )))
   ' "$devcontainer_json") || return 0
 
@@ -143,7 +142,8 @@ extract_mounts_to_file() {
   temp_file=$(mktemp)
 
   # Filter out default mounts by target path (immune to project name changes).
-  # /home/vscode targets are defaults from templates before the user was renamed to zed.
+  # /home/vscode and /workspace targets are defaults from older templates, before
+  # the user was renamed to zed and projects moved to /workspaces/<name>.
   local custom_mounts
   custom_mounts=$(jq -c '
     .mounts // [] | map(
@@ -152,7 +152,8 @@ extract_mounts_to_file() {
         (test("target=/home/(zed|vscode)/\\.claude,") | not) and
         (test("target=/home/(zed|vscode)/\\.config/gh,") | not) and
         (test("target=/home/(zed|vscode)/\\.gitconfig,") | not) and
-        (contains("target=/workspace/.devcontainer,") | not)
+        (test("target=/workspace(s/[^/,]+)?/\\.devcontainer,") | not) and
+        (test("target=/workspace(s/[^/,]+)?/\\.git/(config|hooks),") | not)
       )
     ) | if length > 0 then . else empty end
   ' "$devcontainer_json" 2>/dev/null) || true
@@ -536,6 +537,11 @@ sync_one_container() {
 
   local total_copied=0
 
+  # Claude Code keys projects by cwd with every non-alphanumeric char as '-'.
+  # The workspace is /workspaces/<name> (older templates: /workspace).
+  local ws_key
+  ws_key=$(printf '%s' "/workspaces/${project_name}" | sed 's/[^A-Za-z0-9]/-/g')
+
   # Sync each project key subdirectory.
   for key_path in "$tmpdir"/*/; do
     [[ ! -d "$key_path" ]] && continue
@@ -543,6 +549,12 @@ sync_one_container() {
     [[ -L "${key_path%/}" ]] && continue
     local key dest_key
     key=$(basename "$key_path")
+
+    # Map /workspaces/<name> keys onto the old /workspace ones, so sessions
+    # from containers before and after the move land in the same host dirs.
+    if [[ "$key" == "$ws_key" || "$key" == "$ws_key"-* ]]; then
+      key="-workspace${key#"$ws_key"}"
+    fi
 
     # Always namespace under -devcontainer-<project>.
     if [[ "$key" == "-workspace" ]]; then

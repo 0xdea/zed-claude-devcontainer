@@ -81,11 +81,11 @@ RUN groupmod -n zed vscode && \
   sed -i 's/^vscode:/zed:/' /etc/subuid /etc/subgid
 
 # Create directories and set ownership (combined for fewer layers)
-RUN mkdir -p /commandhistory /workspace /home/zed/.claude /opt && \
+RUN mkdir -p /commandhistory /workspaces /home/zed/.claude /opt && \
   touch /commandhistory/.bash_history && \
   touch /commandhistory/.zsh_history && \
   mkdir -p /commandhistory/fish && \
-  chown -R zed:zed /commandhistory /workspace /home/zed/.claude /opt
+  chown -R zed:zed /commandhistory /workspaces /home/zed/.claude /opt
 
 # System-wide shell init: Zed launches processes via docker exec with umask 0000,
 # so restore a sane umask; also add cargo bin to PATH for shells (ENV PATH below
@@ -113,7 +113,7 @@ ENV SHELL=/usr/bin/fish
 ENV EDITOR=nano
 ENV VISUAL=nano
 
-WORKDIR /workspace
+WORKDIR /workspaces
 
 # Switch to non-root user for remaining setup
 USER zed

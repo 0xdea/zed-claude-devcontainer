@@ -22,9 +22,9 @@
     "source=devc-${localWorkspaceFolderBasename}-config-${devcontainerId},target=/home/zed/.claude,type=volume",
     "source=devc-${localWorkspaceFolderBasename}-gh-${devcontainerId},target=/home/zed/.config/gh,type=volume",
     "source=${localEnv:HOME}/.gitconfig,target=/home/zed/.gitconfig,type=bind,readonly",
-    "source=${localWorkspaceFolder}/.devcontainer,target=/workspace/.devcontainer,type=bind,readonly",
-    "source=${localWorkspaceFolder}/.git/config,target=/workspace/.git/config,type=bind,readonly",
-    "source=${localWorkspaceFolder}/.git/hooks,target=/workspace/.git/hooks,type=bind,readonly"
+    "source=${localWorkspaceFolder}/.devcontainer,target=/workspaces/${localWorkspaceFolderBasename}/.devcontainer,type=bind,readonly",
+    "source=${localWorkspaceFolder}/.git/config,target=/workspaces/${localWorkspaceFolderBasename}/.git/config,type=bind,readonly",
+    "source=${localWorkspaceFolder}/.git/hooks,target=/workspaces/${localWorkspaceFolderBasename}/.git/hooks,type=bind,readonly"
   ],
   "containerEnv": {
     "NODE_OPTIONS": "--max-old-space-size=4096",
@@ -52,7 +52,7 @@
     "ANTHROPIC_API_KEY": "${localEnv:ANTHROPIC_API_KEY:}"
   },
   "initializeCommand": "test -f \"$HOME/.gitconfig\" || touch \"$HOME/.gitconfig\"",
-  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=delegated",
-  "workspaceFolder": "/workspace",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspaces/${localWorkspaceFolderBasename},type=bind,consistency=delegated",
+  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
   "postCreateCommand": ["uv", "run", "--no-project", "/opt/post_install.py"]
 }
