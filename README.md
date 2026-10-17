@@ -148,10 +148,76 @@ Zed never rebuilds the container on its own, even when `devcontainer.json` chang
 
 - **`devc update`** pulls the latest version of `devc` and the template into `~/.claude-devcontainer`. It doesn't touch your projects.
 - **`devc template .`** asks before overwriting the project's `.devcontainer/`, then copies the new template in. It keeps mounts you added with `devc mount`, and removes the `.git` mounts again in a non-git workspace. Your other edits to `.devcontainer/` are overwritten.
-- **`devc rebuild`** rebuilds the image and recreates the container. The volumes for shell history, Claude config, and `gh` login are kept.
+- **`devc rebuild`** rebuilds the image and recreates the container. The volumes for shell history, Claude config, and `gh` login are kept. Docker reuses cached layers whose Dockerfile step hasn't changed (see [Dotfiles](#dotfiles)).
 - **`devc destroy`** deletes the container, volumes, and image, including your Claude login and settings for that project.
 
 After a rebuild, an open Zed window loses its connection to the old container and shows "container is not running". Reopen the project with **Project: Open Remote** → **Connect Dev Container**.
+
+## Customizing the Image
+
+How long a customization lasts depends on where you make it.
+
+### Ad Hoc: Until the Next Rebuild
+
+```bash
+devc exec sudo apt-get install -y <package>
+```
+
+Anything installed this way disappears when the container is recreated by `devc rebuild` or `devc destroy`. Good for a one-off tool during a review.
+
+### Per Project: Until the Next `devc template .`
+
+Edit the project's `.devcontainer/Dockerfile` or `.devcontainer/devcontainer.json`, then run `devc rebuild`. For example, to use your own dotfiles in one project:
+
+```json
+"build": {
+  "dockerfile": "Dockerfile",
+  "args": {
+    "TZ": "${localEnv:TZ:UTC}",
+    "DOTFILES_REPO": "https://github.com/<you>/dotfiles.git"
+  }
+}
+```
+
+Other build args you can set the same way: `NODE_VERSION`, `NEOVIM_VERSION`, `FZF_VERSION`, `GIT_DELTA_VERSION`, and `ZSH_IN_DOCKER_VERSION`.
+
+`devc template .` overwrites these files and keeps only the mounts added with `devc mount`, so you have to reapply other edits after updating the template.
+
+### All Projects: Survives Updates
+
+`devc template` copies its files from the clone at `~/.claude-devcontainer`. To customize every project, keep your changes in a fork and point that clone at it:
+
+1. Fork this repository and commit your changes to the fork. For example, change the `DOTFILES_REPO` default in the `Dockerfile`, or add packages to its `apt-get install` list.
+2. Point `devc` at your fork and pull:
+
+   ```bash
+   git -C ~/.claude-devcontainer remote set-url origin https://github.com/<you>/zed-claude-devcontainer
+   devc update
+   ```
+
+3. In each project, run `devc template .` and `devc rebuild`.
+
+Commit to the fork, not to `~/.claude-devcontainer` directly: `devc update` runs `git pull --ff-only`, which fails once local commits and the fork have diverged. To pick up later changes from this repository, merge it into your fork.
+
+### Dotfiles
+
+The image clones `DOTFILES_REPO` at build time and stows it into `~/` with GNU Stow:
+
+- **Required packages.** The repo must contain `fish`, `nvim`, and `tmux` packages: top-level directories laid out like your home directory, such as `fish/.config/fish/config.fish`. If one is missing, the build fails with `stow: ERROR: The stow directory ... does not contain package nvim`. To stow a different set, edit the `stow` line in the `Dockerfile`.
+- **Optional `claude` package.** If present, `post_install.py` stows it into `~/.claude` when the container is created, since `~/.claude` is a volume that would hide anything stowed at build time.
+- **Public HTTPS URL.** The image build has no access to your SSH keys, so the repo must be cloneable without credentials.
+- **Updates aren't picked up by `devc rebuild`.** Docker caches the clone step, so new commits in your dotfiles repo don't reach the image. To refresh the running container, pull inside it (the stowed files are symlinks, so edits apply immediately; re-run `stow` only for new files):
+
+  ```bash
+  git -C ~/.dotfiles pull
+  stow --no-folding -R -d ~/.dotfiles -t ~ fish nvim tmux
+  ```
+
+  This lasts until the container is recreated. To bake the new commits into the image, rebuild without the cache from the project folder (slow, since every layer is rebuilt; volumes are kept):
+
+  ```bash
+  devcontainer up --workspace-folder . --remove-existing-container --build-no-cache
+  ```
 
 ## Token-Based Auth (Headless)
 
@@ -306,7 +372,7 @@ sudo iptables -A OUTPUT -j DROP
 
 Volumes are stored outside the container, so your shell history, Claude settings, and `gh` login persist even after `devc rebuild`. Host `~/.gitconfig` is mounted read-only for git identity.
 
-The container ships common development tooling so you can do all your work inside it, not just run Claude. The intended workflow is: clone a repository, start the container, and stay in it. If you need extra runtimes, add them to the Dockerfile for repeat use or install them ad-hoc with `devc exec`.
+The container ships common development tooling so you can do all your work inside it, not just run Claude. The intended workflow is: clone a repository, start the container, and stay in it. If you need extra runtimes, see [Customizing the Image](#customizing-the-image).
 
 ## Troubleshooting
 
