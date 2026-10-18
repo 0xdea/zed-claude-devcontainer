@@ -9,6 +9,11 @@
       "matchPackageNames": ["*"],
       "groupName": "all dependencies",
       "groupSlug": "all"
+    },
+    {
+      "description": "Only move Node.js to even (LTS-track) major versions",
+      "matchDepNames": ["node"],
+      "allowedVersions": "/^\\d*[02468](\\.|$)/"
     }
   ],
   "customManagers": [
@@ -20,6 +25,15 @@
         "# renovate: datasource=(?<datasource>[a-z-]+?) depName=(?<depName>.+?)\\n(?:ENV|ARG) .+?_VERSION=(?<currentValue>.+?)\\n"
       ],
       "extractVersionTemplate": "^v?(?<version>.+)$"
+    },
+    {
+      "customType": "regex",
+      "description": "Update the hadolint image run inside the build workflow",
+      "managerFilePatterns": ["/^\\.github/workflows/build\\.yml$/"],
+      "matchStrings": [
+        "(?<depName>hadolint/hadolint):(?<currentValue>[^@\\s]+)@(?<currentDigest>sha256:[a-f0-9]+)"
+      ],
+      "datasourceTemplate": "docker"
     }
   ]
 }

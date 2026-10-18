@@ -188,9 +188,10 @@ project folder:
   `gh` login are kept. Docker reuses cached layers whose Dockerfile step (or any earlier one) hasn't changed, and its
   build cache is shared across projects, so a new project can also get tools from an earlier build.
 - **`devc rebuild --no-cache`** rebuilds every layer without Docker's build cache. The image installs Claude Code,
-  Rust and the cargo tools, zizmor, Node.js 24, Python 3.13, apt packages, and your dotfiles at their latest version
-  when the step runs, so this is how to refresh them. It's slow, since everything is downloaded again. Versions pinned
-  in the `Dockerfile` (base image, git-delta, fzf, Neovim) don't change.
+  Rust and the cargo tools, zizmor, the latest Node.js and Python releases of the pinned major or minor version, apt
+  packages, and your dotfiles at their latest version when the step runs, so this is how to refresh them. It's slow,
+  since everything is downloaded again. Versions pinned in the `Dockerfile` (base image, Node.js and Python series,
+  git-delta, fzf, Neovim, cargo-binstall) don't change; Renovate updates those.
 - **`devc destroy`** deletes the container, volumes, and image, including your Claude login and settings for that
   project.
 

@@ -120,14 +120,17 @@ RUN curl -fsSL https://claude.ai/install.sh | bash && \
   claude plugin marketplace add trailofbits/skills && \
   claude plugin marketplace add trailofbits/skills-curated
 
-# Install Python 3.13 via uv (fast binary download, not source compilation)
-RUN uv python install 3.13 --default
+# Install Python via uv (fast binary download, not source compilation)
+# renovate: datasource=python-version depName=python
+ARG PYTHON_VERSION=3.13
+RUN uv python install "${PYTHON_VERSION}" --default
 
 # Install ast-grep (AST-based code search) and zizmor (GitHub Actions security linter)
 RUN uv tool install ast-grep-cli && \
   uv tool install zizmor
 
 # Install fnm (Fast Node Manager) and Node
+# renovate: datasource=node-version depName=node
 ARG NODE_VERSION=24
 ENV FNM_DIR="/home/vscode/.fnm"
 RUN curl -fsSL https://fnm.vercel.app/install | bash -s -- --install-dir "$FNM_DIR" --skip-shell && \

@@ -3,11 +3,15 @@ name: build
 permissions:
   contents: read
 
+# Skip runs for changes that can't affect the image or the checks (docs, license, git and
+# Renovate config; Renovate reports its own config errors in an issue)
 on:
   push:
     branches: [main]
+    paths-ignore: ["**.md", "LICENSE", ".gitignore", "renovate.json"]
   pull_request:
     branches: [main]
+    paths-ignore: ["**.md", "LICENSE", ".gitignore", "renovate.json"]
   workflow_dispatch:
 
 concurrency:
@@ -37,7 +41,7 @@ jobs:
       - name: hadolint
         run: >-
           docker run --rm -i
-          hadolint/hadolint@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e25c9bfd7b8536de7a539fe68a12d
+          hadolint/hadolint:v2.15.1@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e25c9bfd7b8536de7a539fe68a12d
           hadolint --failure-threshold warning --ignore DL3008 - < Dockerfile
 
   # Install the template into a scratch git workspace the way devc does, then build,
