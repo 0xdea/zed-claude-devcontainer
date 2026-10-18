@@ -56,6 +56,8 @@ Main changes from upstream:
   against a virtual X display.
 - **JSON schema**: `devcontainer.json` uses the base devcontainer schema, avoiding an unresolvable `vscode://` reference
   that editors other than VS Code report as an error.
+- **`devc rebuild --no-cache`**: rebuilds the image without Docker's build cache, to refresh the tools the image
+  installs at their latest version, while still running `devc`'s checks.
 
 ## Why use this?
 
@@ -168,6 +170,7 @@ project folder:
 | ---------------------------------------------------------------------------- | ------------------------------------------------ |
 | Pick up a new version of this template                                       | `devc update`, `devc template .`, `devc rebuild` |
 | Apply your own edits to `.devcontainer/`, or a new `CLAUDE_CODE_OAUTH_TOKEN` | `devc rebuild`                                   |
+| Get the latest Claude Code, Rust, Node.js, apt packages, and dotfiles        | `devc rebuild --no-cache`                        |
 | Upgrade Claude Code only                                                     | `devc upgrade`                                   |
 | Start over with empty volumes                                                | `devc destroy`, then `devc .`                    |
 
@@ -177,7 +180,12 @@ project folder:
   keeps mounts you added with `devc mount`, and removes the `.git` mounts again in a non-git workspace. Your other edits
   to `.devcontainer/` are overwritten.
 - **`devc rebuild`** rebuilds the image and recreates the container. The volumes for shell history, Claude config, and
-  `gh` login are kept. Docker reuses cached layers whose Dockerfile step hasn't changed (see [Dotfiles](#dotfiles)).
+  `gh` login are kept. Docker reuses cached layers whose Dockerfile step (or any earlier one) hasn't changed, and its
+  build cache is shared across projects, so a new project can also get tools from an earlier build.
+- **`devc rebuild --no-cache`** rebuilds every layer without Docker's build cache. The image installs Claude Code,
+  Rust, Node.js 24, Python 3.13, apt packages, and your dotfiles at their latest version when the step runs, so this is
+  how to refresh them. It's slow, since everything is downloaded again. Versions pinned in the `Dockerfile` (base
+  image, git-delta, fzf, Neovim) don't change.
 - **`devc destroy`** deletes the container, volumes, and image, including your Claude login and settings for that
   project.
 
@@ -255,21 +263,17 @@ The image clones `DOTFILES_REPO` at build time and stows it into `~/` with GNU S
   package; delete it once, or run `devc destroy`.
 - **Public HTTPS URL.** The image build has no access to your SSH keys, so the repo must be cloneable without
   credentials.
-- **Updates aren't picked up by `devc rebuild`.** Docker caches the clone step, so new commits in your dotfiles repo
-  don't reach the image. To refresh the running container, pull inside it (the stowed files are symlinks, so edits apply
-  immediately; re-run `stow` only for new files):
+- **Updates aren't picked up by a plain `devc rebuild`.** Docker caches the clone step, so new commits in your dotfiles
+  repo don't reach the image. To refresh the running container, pull inside it (the stowed files are symlinks, so edits
+  apply immediately; re-run `stow` only for new files):
 
   ```sh
   git -C ~/.dotfiles pull
   stow --no-folding -R -d ~/.dotfiles -t ~ fish nvim tmux
   ```
 
-  This lasts until the container is recreated. To bake the new commits into the image, rebuild without the cache from
-  the project folder (slow, since every layer is rebuilt; volumes are kept):
-
-  ```sh
-  devcontainer up --workspace-folder . --remove-existing-container --build-no-cache
-  ```
+  This lasts until the container is recreated. To bake the new commits into the image, run `devc rebuild --no-cache`
+  from the project folder (see [Updating and rebuilding](#updating-and-rebuilding)).
 
 ## Known issues
 

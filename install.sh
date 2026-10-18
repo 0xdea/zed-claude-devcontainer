@@ -29,7 +29,7 @@ Usage: devc <command> [options]
 Commands:
     .                   Install devcontainer template to current directory and start
     up                  Start the devcontainer in current directory
-    rebuild             Rebuild the devcontainer (preserves auth volumes)
+    rebuild [--no-cache] Rebuild the devcontainer (preserves auth volumes)
     down                Stop the devcontainer
     shell               Open a shell in the running container
     self-install        Install 'devc' command to ~/.local/bin
@@ -47,6 +47,7 @@ Examples:
     devc .                      # Install template and start container
     devc up                     # Start container in current directory
     devc rebuild                # Clean rebuild
+    devc rebuild --no-cache     # Rebuild without Docker's cache (refreshes tools)
     devc shell                  # Open interactive shell
     devc self-install           # Install devc to PATH
     devc update                 # Update to latest version
@@ -267,6 +268,21 @@ cmd_up() {
 }
 
 cmd_rebuild() {
+  local no_cache=false
+
+  # Parse flags
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --no-cache)
+        no_cache=true
+        shift
+        ;;
+      *)
+        break
+        ;;
+    esac
+  done
+
   local workspace_folder
   workspace_folder="$(get_workspace_folder "${1:-}")"
 
@@ -274,9 +290,18 @@ cmd_rebuild() {
   check_no_sys_admin "$workspace_folder"
   strip_git_mounts_if_not_repo \
     "$workspace_folder/.devcontainer/devcontainer.json" "$workspace_folder"
-  log_info "Rebuilding devcontainer in $workspace_folder..."
 
-  devcontainer up --workspace-folder "$workspace_folder" --remove-existing-container
+  # Docker reuses cached layers, so steps that install the latest version of a
+  # tool (Claude Code, Rust, dotfiles, ...) only rerun without the cache
+  local up_args=(--workspace-folder "$workspace_folder" --remove-existing-container)
+  if [[ "$no_cache" == true ]]; then
+    up_args+=(--build-no-cache)
+    log_info "Rebuilding devcontainer in $workspace_folder without the build cache..."
+  else
+    log_info "Rebuilding devcontainer in $workspace_folder..."
+  fi
+
+  devcontainer up "${up_args[@]}"
   log_success "Devcontainer rebuilt"
 }
 
