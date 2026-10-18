@@ -79,7 +79,8 @@ jobs:
             cargo audit --version
             cargo nextest --version
             zizmor --version
-            # no grep -q: exiting at the first match can break rustup's output under pipefail
+            # no grep -q: exiting at the first match can break the rustup output under pipefail
+            # (and no apostrophes in this script: it is single-quoted)
             rustup target list --installed | grep -Fx wasm32-wasip2 >/dev/null
           '
 
