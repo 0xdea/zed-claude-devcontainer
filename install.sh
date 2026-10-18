@@ -114,7 +114,7 @@ strip_git_mounts_if_not_repo() {
   local updated
   updated=$(jq '
     .mounts = ((.mounts // []) | map(select(
-      test("target=/workspace(s/[^/,]+)?/\\.git/(config|hooks)") | not
+      test("target=/workspaces/[^/,]+/\\.git/(config|hooks)") | not
     )))
   ' "$devcontainer_json") || return 0
 
@@ -141,20 +141,17 @@ extract_mounts_to_file() {
 
   temp_file=$(mktemp)
 
-  # Filter out default mounts by target path (immune to project name changes).
-  # /home/zed and /workspace targets are defaults from older templates: one that
-  # briefly renamed the user to zed, and those before projects moved to
-  # /workspaces/<name>.
+  # Filter out default mounts by target path (immune to project name changes)
   local custom_mounts
   custom_mounts=$(jq -c '
     .mounts // [] | map(
       select(
         (contains("target=/commandhistory,") | not) and
-        (test("target=/home/(zed|vscode)/\\.claude,") | not) and
-        (test("target=/home/(zed|vscode)/\\.config/gh,") | not) and
-        (test("target=/home/(zed|vscode)/\\.gitconfig,") | not) and
-        (test("target=/workspace(s/[^/,]+)?/\\.devcontainer,") | not) and
-        (test("target=/workspace(s/[^/,]+)?/\\.git/(config|hooks),") | not)
+        (contains("target=/home/vscode/.claude,") | not) and
+        (contains("target=/home/vscode/.config/gh,") | not) and
+        (contains("target=/home/vscode/.gitconfig,") | not) and
+        (test("target=/workspaces/[^/,]+/\\.devcontainer,") | not) and
+        (test("target=/workspaces/[^/,]+/\\.git/(config|hooks),") | not)
       )
     ) | if length > 0 then . else empty end
   ' "$devcontainer_json" 2>/dev/null) || true
