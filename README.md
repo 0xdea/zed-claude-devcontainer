@@ -14,17 +14,19 @@ A containerized development environment for running [Claude Code](https://claude
 `bypassPermissions` enabled, with support for [Zed](https://zed.dev). Designed for security audit workflows and Rust
 development.
 
-> [!TIP]
-> See also [trailofbits/claude-code-devcontainer](https://github.com/trailofbits/claude-code-devcontainer)'s README for
-> the original template's documentation, which is more general and covers: Colima Apple Silicon optimizations,
-> token-based authentication (headless), CLI helper commands, session sync for `/insights`, file sharing, network
-> isolation, threat model, container details, and troubleshooting.
-
 ## About this fork
 
 This project is based on
 [trailofbits/claude-code-devcontainer](https://github.com/trailofbits/claude-code-devcontainer), licensed under the
-Apache License 2.0. Main changes from upstream:
+Apache License 2.0.
+
+> [!TIP]
+> See also the [upstream README](https://github.com/trailofbits/claude-code-devcontainer#readme) for the original
+> template's documentation, which is more general and covers: Colima Apple Silicon optimizations, token-based
+> authentication (headless), CLI helper commands, session sync for `/insights`, file sharing, network isolation, threat
+> model, container details, and troubleshooting.
+
+Main changes from upstream:
 
 - **Zed only**: the `customizations.vscode` block (VS Code extensions and settings) is removed, and the documentation
   covers Zed and the terminal instead of VS Code and Cursor.
