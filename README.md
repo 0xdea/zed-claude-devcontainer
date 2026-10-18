@@ -34,9 +34,9 @@ Apache License 2.0. Main changes from upstream:
   (<https://github.com/zed-industries/zed/issues/62964>), so `post_install.py` never ran. The command now uses the
   equivalent exec (array) form, which works in Zed, VS Code, and the devcontainers CLI (proposed upstream in
   <https://github.com/trailofbits/claude-code-devcontainer/pull/56>).
-- **Umask workaround**: Zed starts processes in the container via `docker exec`, and some Docker engines (OrbStack among
-  them) give `docker exec` processes umask `0000`, which leaves newly created files world-writable. The image restores
-  umask `022` in the system-wide init for bash, zsh, and fish. Processes that don't start a shell keep `0000`.
+- **Umask workaround**: the image restores umask `022` in the system-wide init for bash, zsh, and fish, because some
+  Docker engines start `docker exec` processes, such as Zed's, with umask `0000`. Processes that don't start a shell
+  aren't covered; see [Known issues](#known-issues).
 - **Git settings in `containerEnv`**: `core.checkStat=minimal` and `core.trustctime=false` are set through
   `GIT_CONFIG_COUNT`/`GIT_CONFIG_KEY_*`/`GIT_CONFIG_VALUE_*`, so git doesn't treat bind-mounted files as modified just
   because their inode or ctime metadata differs from what the host recorded. Environment variables are used because the
@@ -53,16 +53,6 @@ Apache License 2.0. Main changes from upstream:
   against a virtual X display.
 - **JSON schema**: `devcontainer.json` uses the base devcontainer schema, avoiding an unresolvable `vscode://` reference
   that editors other than VS Code report as an error.
-
-> [!NOTE]
-> Because of the umask issue, files created by Zed's remote server and the processes it launches (such as language
-> servers and `cargo check`) can end up world-writable on the host. Git only records the executable bit, so this never
-> reaches a remote. To find such files in a project from the host, and to remove group and other write access:
->
-> ```sh
-> find <project> \( -type f -o -type d \) -perm -0002
-> find <project> \( -type f -o -type d \) -perm -0002 -exec chmod go-w {} +
-> ```
 
 ## Why use this?
 
@@ -269,6 +259,27 @@ The image clones `DOTFILES_REPO` at build time and stows it into `~/` with GNU S
   ```sh
   devcontainer up --workspace-folder . --remove-existing-container --build-no-cache
   ```
+
+## Known issues
+
+### World-writable files on the host
+
+Some Docker engines, OrbStack among them, start `docker exec` processes with umask `0000`, so the files they create are
+world-writable. Shells in the container restore umask `022`, so files created from a terminal are fine. Processes that
+don't start a shell keep `0000`: Zed's remote server, which saves your edits, and what it launches, such as language
+servers, `cargo check`, and Zed's git operations. The project folder is shared with the host, so these files are
+writable by other local users there too. Git only records the executable bit, so the extra permissions never reach a
+remote.
+
+To see what your engine does, run `docker exec <container> sh -c umask`. To find such files in a project from the host,
+and to remove group and other write access:
+
+```sh
+find <project> \( -type f -o -type d \) -perm -0002
+find <project> \( -type f -o -type d \) -perm -0002 -exec chmod go-w {} +
+```
+
+The `-type` filter skips symlinks, which `chmod` would otherwise follow.
 
 ## Development
 
