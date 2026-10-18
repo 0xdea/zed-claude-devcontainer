@@ -111,14 +111,14 @@ config that would run on your host.
 
 ### Pattern B: shared workspace container (not a git repository)
 
-A parent directory contains the devcontainer config, and you clone multiple repos inside. Shared volumes across all
-repos. Best for client engagements, related repositories, or ongoing work.
+A parent directory holds the devcontainer config, and you clone multiple repos inside it. All the repos share one
+container and its volumes. Best for related repositories you trust, or ongoing work.
 
-Create workspace for a client engagement:
+Create a shared workspace:
 
 ```sh
-mkdir -p ~/sandbox/client-name
-cd ~/sandbox/client-name
+mkdir -p ~/sandbox/workspace-name
+cd ~/sandbox/workspace-name
 devc .          # Installs .devcontainer/ + starts container
 ```
 
@@ -129,8 +129,8 @@ devc .          # Installs .devcontainer/ + starts container
 Then clone repos inside the workspace, from the host or from the container:
 
 ```sh
-git clone <client-repo-1>
-git clone <client-repo-2>
+git clone <repo-1>
+git clone <repo-2>
 ```
 
 > [!WARNING]
