@@ -61,6 +61,9 @@ Main changes from upstream:
   against a virtual X display.
 - **`devc rebuild --no-cache`**: rebuilds the image without Docker's build cache, to refresh the tools the image
   installs at their latest version, while still running `devc`'s checks.
+- **CI and dependency updates**: a `build` workflow lints the template, builds the image and checks the container, and
+  runs zizmor; Renovate also tracks the Node.js and Python series and the CI's hadolint image, with a 10-day minimum
+  release age.
 - **JSON schema**: `devcontainer.json` uses the base devcontainer schema, avoiding an unresolvable `vscode://` reference
   that editors other than VS Code report as an error.
 
@@ -199,6 +202,10 @@ project folder:
 > After a rebuild, an open Zed window loses its connection to the old container and shows "container is not running".
 > Reopen the project with **Project: Open Remote** -> **Connect Dev Container**.
 
+Ubuntu security fixes reach the image through the base image updates that Renovate proposes, and through
+`devc rebuild --no-cache` for the packages the `Dockerfile` installs. For an urgent fix, `sudo apt-get upgrade` inside
+the container applies it right away, but only until the container is recreated.
+
 ## Customizing the image
 
 How long a customization lasts depends on where you make it.
@@ -321,3 +328,7 @@ After each change, run `./install.sh template ~/devc-test` again (answer `y`) an
 folder. To test changes to `install.sh` itself, run the working copy's script, for example
 `~/path/to/repo/install.sh rebuild`. When you're done, run `devc destroy -f` in the scratch folder to remove its
 container, volumes, and image.
+
+Pushes and pull requests run the `build` workflow; changes that only touch `*.md`, `LICENSE`, `.gitignore`, or
+`renovate.json` skip it. Renovate opens one grouped pull request on Mondays, and its Dependency Dashboard issue shows
+what's pending; merge the pull request once `build` is green.
