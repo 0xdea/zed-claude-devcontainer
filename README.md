@@ -50,8 +50,12 @@ Main changes from upstream:
 - **Neovim**: installed from GitHub releases, since the Ubuntu package is too old for current lazy.nvim.
 - **Dotfiles**: a dotfiles repo (`DOTFILES_REPO` build arg) is cloned and stowed; `claude` is stowed in
   `post_install.py` because `~/.claude` is a volume.
-- **Rust toolchain**: installed via rustup with `rustfmt`, `clippy`, and `rust-analyzer`, with cargo on `PATH` for all
-  shells and non-shell processes.
+- **Rust toolchain**: installed via rustup with `rustfmt`, `clippy`, `rust-analyzer`, and the `wasm32-wasip2` target
+  (for Zed extensions), with cargo on `PATH` for all shells and non-shell processes.
+- **Rust and CI tools**: `cargo-audit`, `cargo-deny`, `cargo-semver-checks`, `cargo-nextest`, `cargo-generate`,
+  `cargo-dylint`, and `dylint-link`, installed with [cargo-binstall](https://github.com/cargo-bins/cargo-binstall) from
+  each project's own release binaries (falling back to compiling from crates.io; no third-party QuickInstall builds or
+  statistics), plus [zizmor](https://github.com/zizmorcore/zizmor) via uv.
 - **GUI/automation dependencies**: `libxdo-dev` for mouse/keyboard automation crates and `xvfb` for running tests
   against a virtual X display.
 - **`devc rebuild --no-cache`**: rebuilds the image without Docker's build cache, to refresh the tools the image
@@ -170,7 +174,7 @@ project folder:
 | ---------------------------------------------------------------------------- | ------------------------------------------------ |
 | Pick up a new version of this template                                       | `devc update`, `devc template .`, `devc rebuild` |
 | Apply your own edits to `.devcontainer/`, or a new `CLAUDE_CODE_OAUTH_TOKEN` | `devc rebuild`                                   |
-| Get the latest Claude Code, Rust, Node.js, apt packages, and dotfiles        | `devc rebuild --no-cache`                        |
+| Get the latest Claude Code, Rust and cargo tools, apt packages, dotfiles     | `devc rebuild --no-cache`                        |
 | Upgrade Claude Code only                                                     | `devc upgrade`                                   |
 | Start over with empty volumes                                                | `devc destroy`, then `devc .`                    |
 
@@ -183,9 +187,9 @@ project folder:
   `gh` login are kept. Docker reuses cached layers whose Dockerfile step (or any earlier one) hasn't changed, and its
   build cache is shared across projects, so a new project can also get tools from an earlier build.
 - **`devc rebuild --no-cache`** rebuilds every layer without Docker's build cache. The image installs Claude Code,
-  Rust, Node.js 24, Python 3.13, apt packages, and your dotfiles at their latest version when the step runs, so this is
-  how to refresh them. It's slow, since everything is downloaded again. Versions pinned in the `Dockerfile` (base
-  image, git-delta, fzf, Neovim) don't change.
+  Rust and the cargo tools, zizmor, Node.js 24, Python 3.13, apt packages, and your dotfiles at their latest version
+  when the step runs, so this is how to refresh them. It's slow, since everything is downloaded again. Versions pinned
+  in the `Dockerfile` (base image, git-delta, fzf, Neovim) don't change.
 - **`devc destroy`** deletes the container, volumes, and image, including your Claude login and settings for that
   project.
 

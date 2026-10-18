@@ -123,8 +123,9 @@ RUN curl -fsSL https://claude.ai/install.sh | bash && \
 # Install Python 3.13 via uv (fast binary download, not source compilation)
 RUN uv python install 3.13 --default
 
-# Install ast-grep (AST-based code search)
-RUN uv tool install ast-grep-cli
+# Install ast-grep (AST-based code search) and zizmor (GitHub Actions security linter)
+RUN uv tool install ast-grep-cli && \
+  uv tool install zizmor
 
 # Install fnm (Fast Node Manager) and Node
 ARG NODE_VERSION=24
@@ -138,15 +139,26 @@ RUN curl -fsSL https://fnm.vercel.app/install | bash -s -- --install-dir "$FNM_D
 # fnm's shell hook is zsh-only, so without this node/npm are missing from bash/sh
 ENV PATH="$FNM_DIR/aliases/default/bin:$PATH"
 
-# Install Rust via rustup (stable, minimal profile + common components)
+# Install Rust via rustup (stable, minimal profile + common components, wasm32-wasip2
+# target for Zed extensions)
 ENV RUSTUP_HOME="/home/vscode/.rustup" \
   CARGO_HOME="/home/vscode/.cargo"
 RUN curl --proto '=https' --tlsv1.2 -fsSL https://sh.rustup.rs | \
   sh -s -- -y --no-modify-path --profile minimal --default-toolchain stable \
-    --component rustfmt,clippy,rust-analyzer
+    --component rustfmt,clippy,rust-analyzer --target wasm32-wasip2
 
 # Set via ENV (like fnm) so cargo works in bash, zsh and fish
 ENV PATH="$CARGO_HOME/bin:$PATH"
+
+# Install cargo tools with cargo-binstall: each project's own release binaries, falling
+# back to compiling from crates.io (no QuickInstall third-party builds or statistics,
+# and no GitHub token lookup)
+# renovate: datasource=github-releases depName=cargo-bins/cargo-binstall
+ARG CARGO_BINSTALL_VERSION=1.25.3
+RUN curl -fsSL "https://github.com/cargo-bins/cargo-binstall/releases/download/v${CARGO_BINSTALL_VERSION}/cargo-binstall-$(uname -m)-unknown-linux-musl.tgz" | \
+    tar -xz -C "$CARGO_HOME/bin" && \
+  cargo binstall -y --locked --strategies crate-meta-data,compile --disable-telemetry --no-discover-github-token \
+    cargo-audit cargo-deny cargo-semver-checks cargo-nextest cargo-generate cargo-dylint dylint-link
 
 # Install Oh My Zsh
 # renovate: datasource=github-releases depName=deluan/zsh-in-docker
