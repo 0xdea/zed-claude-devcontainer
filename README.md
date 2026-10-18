@@ -6,6 +6,7 @@
 [![](https://img.shields.io/badge/zed-1.x-violet)](https://zed.dev/)
 [![](https://img.shields.io/badge/twitter-%400xdea-blue.svg)](https://twitter.com/0xdea)
 [![](https://img.shields.io/badge/mastodon-%40raptor-purple.svg)](https://infosec.exchange/@raptor)
+[![build](https://github.com/0xdea/zed-claude-devcontainer/actions/workflows/build.yml/badge.svg)](https://github.com/0xdea/zed-claude-devcontainer/actions/workflows/build.yml)
 
 > "Our robot overlords will use NUL-terminated strings."
 >

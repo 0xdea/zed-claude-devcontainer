@@ -1,0 +1,98 @@
+name: build
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # devc edits devcontainer.json with jq, which rejects comments and other JSONC
+      - name: devcontainer-json
+        run: jq -e . devcontainer.json >/dev/null
+      - name: shellcheck
+        run: shellcheck -S warning install.sh .zshrc
+      - name: ruff
+        run: |
+          pipx run ruff check post_install.py
+          pipx run ruff format --check --diff post_install.py
+      # DL3008 (pin apt package versions) doesn't suit a dev image
+      - name: hadolint
+        run: >-
+          docker run --rm -i
+          hadolint/hadolint@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e25c9bfd7b8536de7a539fe68a12d
+          hadolint --failure-threshold warning --ignore DL3008 - < Dockerfile
+
+  # Install the template into a scratch git workspace the way devc does, then build,
+  # start, and check the container
+  smoke:
+    name: smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: install devcontainers cli
+        # zizmor: ignore[adhoc-packages] -- devc needs the CLI; the job has a read-only token and no secrets
+        run: npm install -g @devcontainers/cli@0
+      - name: install template
+        run: |
+          mkdir -p "$RUNNER_TEMP/ws"
+          git -C "$RUNNER_TEMP/ws" init -q
+          ./install.sh template "$RUNNER_TEMP/ws"
+      - name: build and start container
+        run: ./install.sh up "$RUNNER_TEMP/ws"
+      - name: check container
+        run: |
+          # shellcheck disable=SC2016 # expanded by the container's bash, not here
+          devcontainer exec --workspace-folder "$RUNNER_TEMP/ws" bash -c '
+            set -euxo pipefail
+            test "$(pwd)" = /workspaces/ws
+            test "$(id -un)" = vscode
+            claude --version
+            jq -e ".permissions.defaultMode == \"bypassPermissions\"" ~/.claude/settings.json
+            test -f ~/.gitconfig.local
+            # set -e ignores commands negated with !, hence the explicit exits
+            ! touch .git/config || exit 1
+            ! touch .devcontainer/x || exit 1
+            command -v fdfind
+            fish -c "type -q fd"
+            cargo audit --version
+            cargo nextest --version
+            zizmor --version
+            # no grep -q: exiting at the first match can break rustup's output under pipefail
+            rustup target list --installed | grep -Fx wasm32-wasip2 >/dev/null
+          '
+
+  zizmor:
+    name: zizmor
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: zizmor
+        uses: zizmorcore/zizmor-action@cc914d7f3750a2d13d75c7f184a1060aa0e9d482 # v0.6.4
+        with:
+          advanced-security: false
