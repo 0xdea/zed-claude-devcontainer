@@ -117,7 +117,7 @@ cd ~/sandbox/client-name
 devc .          # Installs .devcontainer/ + starts container
 ```
 
-> [!WARNING]
+> [!IMPORTANT]
 > **Don't skip `devc`.** Zed reads `devcontainer.json` directly. In a folder that isn't a git repository, the template's
 > `.git` mounts make Zed fail with `bind source path does not exist: .../.git/config` until `devc` has removed them.
 
@@ -128,9 +128,12 @@ git clone <client-repo-1>
 git clone <client-repo-2>
 ```
 
-> [!NOTE]
-> The repos inside the workspace don't get the read-only `.git` protection; only the workspace root does. If you later
-> run `git init` in the workspace itself, run `devc template .` to restore the `.git` mounts.
+> [!WARNING]
+> The repos inside the workspace don't get the read-only `.git` protection; only the workspace root does. Code in the
+> container can change their `.git/config` and `.git/hooks`, and git runs those on your host the next time you use it
+> there. Prefer Pattern A for repos you don't trust.
+
+If you later run `git init` in the workspace itself, run `devc template .` to restore the `.git` mounts.
 
 ### Opening the project in Zed
 
@@ -142,9 +145,10 @@ git clone <client-repo-2>
 Zed attaches to the container `devc` started, and its terminal and language servers run inside the container.
 
 > [!WARNING]
-> Extensions listed under `customizations.zed.extensions` in `devcontainer.json` are also installed in your local Zed
-> ([Zed docs](https://zed.dev/docs/dev-containers)). The bundled template lists none; check this field before opening a
-> project whose `.devcontainer/` you didn't create.
+> Only open projects whose `.devcontainer/` was installed by `devc`. If a repository ships its own, `devc .` asks
+> before replacing it; answer `y`. Zed otherwise uses the repository's `devcontainer.json`, which can run commands on
+> your host (`initializeCommand`), mount host directories, weaken the container's isolation, and install extensions in
+> your local Zed (`customizations.zed.extensions`, see the [Zed docs](https://zed.dev/docs/dev-containers)).
 
 ### Terminal only
 
