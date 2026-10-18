@@ -3,6 +3,7 @@
 [![](https://img.shields.io/github/stars/0xdea/zed-claude-devcontainer.svg?style=flat&color=yellow)](https://github.com/0xdea/zed-claude-devcontainer)
 [![](https://img.shields.io/github/forks/0xdea/zed-claude-devcontainer.svg?style=flat&color=green)](https://github.com/0xdea/zed-claude-devcontainer)
 [![](https://img.shields.io/github/watchers/0xdea/zed-claude-devcontainer.svg?style=flat&color=red)](https://github.com/0xdea/zed-claude-devcontainer)
+[![](https://img.shields.io/badge/zed-1.x-violet)](https://zed.dev/)
 [![](https://img.shields.io/badge/twitter-%400xdea-blue.svg)](https://twitter.com/0xdea)
 [![](https://img.shields.io/badge/mastodon-%40raptor-purple.svg)](https://infosec.exchange/@raptor)
 
@@ -76,7 +77,11 @@ disposable container, not the rest of your host.
   - [Docker Desktop](https://docker.com/products/docker-desktop) - untested
   - [Colima](https://github.com/abiosoft/colima): `brew install colima docker && colima start` - untested
 
-- **[Zed](https://zed.dev/)** with dev container support (optional, you can also work from the terminal)
+- **[Zed](https://zed.dev/)** (optional, you can also work from the terminal)
+
+- **[jq](https://jqlang.org/)**, which `devc` uses to edit `devcontainer.json` (ships with macOS 15 and later)
+
+- **[Node.js](https://nodejs.org/) and npm**, to install the devcontainers CLI
 
 - **`devc` and the devcontainers CLI** (one-time install, needed with or without Zed):
 
@@ -246,7 +251,7 @@ The image clones `DOTFILES_REPO` at build time and stows it into `~/` with GNU S
 - **Optional `claude` package.** If present, `post_install.py` stows it into `~/.claude` when the container is created,
   since `~/.claude` is a volume that would hide anything stowed at build time. If the package includes `settings.json`,
   `post_install.py` leaves it alone instead of enabling `bypassPermissions`, so set `"permissions": {"defaultMode":
-  "bypassPermissions"}` in it yourself. A `settings.json` already in an existing `~/.claude` volume blocks stowing the
+"bypassPermissions"}` in it yourself. A `settings.json` already in an existing `~/.claude` volume blocks stowing the
   package; delete it once, or run `devc destroy`.
 - **Public HTTPS URL.** The image build has no access to your SSH keys, so the repo must be cloneable without
   credentials.
