@@ -54,10 +54,10 @@ Main changes from upstream:
   shells and non-shell processes.
 - **GUI/automation dependencies**: `libxdo-dev` for mouse/keyboard automation crates and `xvfb` for running tests
   against a virtual X display.
-- **JSON schema**: `devcontainer.json` uses the base devcontainer schema, avoiding an unresolvable `vscode://` reference
-  that editors other than VS Code report as an error.
 - **`devc rebuild --no-cache`**: rebuilds the image without Docker's build cache, to refresh the tools the image
   installs at their latest version, while still running `devc`'s checks.
+- **JSON schema**: `devcontainer.json` uses the base devcontainer schema, avoiding an unresolvable `vscode://` reference
+  that editors other than VS Code report as an error.
 
 ## Why use this?
 
