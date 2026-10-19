@@ -224,19 +224,25 @@ for HTTPS remotes on GitHub, so `git push` works without further setup.
 Log in by pasting the token:
 
 ```sh
+gh auth logout               # removes the current login (only needed if you're logged in)
 gh auth login --with-token   # paste the token, then press Ctrl-D
+gh auth status               # should show you logged in
 ```
 
 Recommended settings for working on your own repositories:
 
-| Setting                                        | Value                                                  |
-| ---------------------------------------------- | ------------------------------------------------------ |
-| Repository access                              | All repositories, or only the ones in this workspace   |
-| Contents                                       | Read and write                                         |
-| Workflows                                      | Read and write (omit if you don't edit CI from here)   |
-| Pull requests                                  | Read and write                                         |
-| Administration, Secrets, Webhooks, Deployments | No access                                              |
-| Expiration                                     | 90 days or less                                        |
+| Setting                                        | Value                                                |
+| ---------------------------------------------- | ---------------------------------------------------- |
+| Expiration                                     | 90 days or less                                      |
+| Repository access                              | All repositories, or only the ones in this workspace |
+| Actions                                        | Read-only (for `gh run list` and `gh run view`)      |
+| Contents                                       | Read and write                                       |
+| Dependabot alerts                              | Read-only                                            |
+| Issues                                         | Read-only                                            |
+| Metadata                                       | Read-only (required, added automatically)            |
+| Pull requests                                  | Read and write                                       |
+| Workflows                                      | Read and write (omit if you don't edit CI from here) |
+| Administration, Deployments, Secrets, Webhooks | No access                                            |
 
 Without **Administration**, a stolen token can't create a way back in, so revoking it ends the attacker's access, and
 the expiration limits how long a forgotten copy works. You can change an existing token's repositories and
