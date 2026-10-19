@@ -309,6 +309,45 @@ find <project> \( -type f -o -type d \) -perm -0002 -exec chmod go-w {} +
 
 The `-type` filter skips symlinks, which `chmod` would otherwise follow.
 
+### Agent threads disappear after a rebuild
+
+Zed records each agent thread with the ID of the container it ran in, and lists only threads for the current container
+([zed-industries/zed#56576](https://github.com/zed-industries/zed/issues/56576)). Every `devc rebuild` creates a new
+container, so earlier threads drop out of the list, and opening them from **Show Threads History** fails silently. The
+transcripts are still in the `~/.claude` volume.
+
+Until Zed fixes it, point a project's threads at the current container in Zed's database. Start one new thread in the
+rebuilt container first, then quit Zed and run this on the host, replacing `<folder name>`:
+
+```sh
+DB="$HOME/Library/Application Support/Zed/db/0-stable/db.sqlite"  # Linux: ~/.local/share/zed/db/0-stable/db.sqlite
+cp "$DB" "$DB.bak"
+sqlite3 "$DB" "
+  UPDATE sidebar_threads
+  SET remote_connection = (SELECT remote_connection FROM sidebar_threads
+                           WHERE folder_paths = '/workspaces/<folder name>' ORDER BY updated_at DESC LIMIT 1)
+  WHERE folder_paths = '/workspaces/<folder name>';"
+```
+
+Alternatively, continue a lost thread with Claude Code in a terminal in the container (`devc shell`). Threads started
+in Zed don't appear in a plain `claude --resume`, because Claude Code hides sessions created through its SDK, which Zed
+uses, from the terminal's picker. Either resume one by its ID, which is the transcript's file name under
+`~/.claude/projects/`, or make the picker list SDK sessions too:
+
+```sh
+claude --resume <session ID>
+env CLAUDE_CODE_ENTRYPOINT=sdk-ts claude --resume
+```
+
+`CLAUDE_CODE_ENTRYPOINT` isn't a documented setting, and sessions you start with it are also tagged as SDK sessions, so
+use it only to pick a thread to resume.
+
+### Zed stores the container environment in plain text
+
+Each thread record in Zed's database includes the container's environment variables, including
+`CLAUDE_CODE_OAUTH_TOKEN` and `ANTHROPIC_API_KEY` when you pass them from the host. If you use token-based
+authentication, the token ends up in plain text in Zed's database on the host.
+
 ## Development
 
 The template files live at the top of this repository, not in a `.devcontainer/` folder, so the devcontainers CLI can't
