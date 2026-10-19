@@ -210,22 +210,42 @@ the container applies it right away, but only until the container is recreated.
 
 ## GitHub access
 
-Each project has its own `gh` login, stored in its `~/.config/gh` volume, so it survives rebuilds. Log in once inside
-the container with `gh auth login`; git then uses that login for HTTPS remotes on GitHub, so `git push` works without
-further setup.
+Each project has its own `gh` login, stored in its `~/.config/gh` volume, so it survives rebuilds. Git uses that login
+for HTTPS remotes on GitHub, so `git push` works without further setup.
 
 > [!WARNING]
-> Anything running in the container can read that token and use it, including the code you're reviewing. For
-> repositories you don't fully trust, either don't log in to `gh` in that project at all, or use a
-> [fine-grained personal access token](https://github.com/settings/personal-access-tokens/new) limited to the
-> repositories you need, with only the permissions you need (for example, **Contents: read and write** to push):
->
-> ```sh
-> gh auth login --with-token   # paste the token, then press Ctrl-D
-> ```
->
-> A classic token or a `gh auth login` through the browser grants access to all your repositories. That's acceptable
-> only for projects whose code you trust. To remove a login, run `gh auth logout` in the container.
+> Anything running in the container can read that token and use it, including the code you're reviewing and its
+> dependencies. Don't log in with the browser flow (`gh auth login`) or a classic token: they grant full control of all
+> your repositories, including administrative actions such as adding deploy keys, collaborators, or webhooks, which
+> keep an attacker's access even after you revoke the token. Log in with a
+> [fine-grained personal access token](https://github.com/settings/personal-access-tokens/new) instead, or don't log in
+> at all in projects with code you don't trust.
+
+Log in by pasting the token:
+
+```sh
+gh auth login --with-token   # paste the token, then press Ctrl-D
+```
+
+Recommended settings for working on your own repositories:
+
+| Setting                                        | Value                                                  |
+| ---------------------------------------------- | ------------------------------------------------------ |
+| Repository access                              | All repositories, or only the ones in this workspace   |
+| Contents                                       | Read and write                                         |
+| Workflows                                      | Read and write (omit if you don't edit CI from here)   |
+| Pull requests                                  | Read and write                                         |
+| Administration, Secrets, Webhooks, Deployments | No access                                              |
+| Expiration                                     | 90 days or less                                        |
+
+Without **Administration**, a stolen token can't create a way back in, so revoking it ends the attacker's access, and
+the expiration limits how long a forgotten copy works. You can change an existing token's repositories and
+permissions later on GitHub without creating a new one. For code you don't trust, narrow it further: only the
+repositories you need, and no **Workflows**, so CI files can't be changed.
+
+`gh auth logout` only deletes the token from the container; it stays valid on GitHub. To invalidate a fine-grained
+token, delete it in your GitHub settings. A browser-flow login can only be revoked by removing the **GitHub CLI**
+authorization under Settings → Applications, which signs out every `gh` login, including on the host.
 
 ## Customizing the image
 
