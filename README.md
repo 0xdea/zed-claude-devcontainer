@@ -200,6 +200,30 @@ project folder:
 - **`devc destroy`** deletes the container, volumes, and image, including your Claude login and settings for that
   project.
 
+### What a rebuild and a destroy erase
+
+A rebuild throws the container away and creates a new one from the image, so anything written inside the container
+outside a volume or a folder shared with the host is lost. `devc mount` recreates the container too, so it behaves like
+a rebuild. `devc down` followed by `devc up` only stops and restarts the same container.
+
+| What                                                | `devc down`, `devc up` | `devc rebuild`       | `devc destroy`      |
+| --------------------------------------------------- | ---------------------- | -------------------- | ------------------- |
+| Project folder on the host, including `target/`     | Kept                   | Kept                 | Kept                |
+| Volumes: shell history, Claude data, `gh` login     | Kept                   | Kept                 | **Deleted**         |
+| Tools installed by hand (`apt`, `cargo install`, …) | Kept                   | **Erased**           | **Erased**          |
+| Updates inside the container (`devc upgrade`, …)    | Kept                   | **Erased**           | **Erased**          |
+| Caches (`~/.cargo/registry`, Neovim plugins, …)     | Kept                   | **Erased**           | **Erased**          |
+| fish `set -U` variables                             | Kept                   | **Erased**           | **Erased**          |
+| Running processes (tmux, servers), iptables rules   | Lost                   | Lost                 | Lost                |
+| The image                                           | Kept                   | Rebuilt              | **Deleted**         |
+| Zed's thread list                                   | Kept                   | Older threads hidden | Transcripts deleted |
+
+"Claude data" means its login, settings, sessions, and memory. Files that `post_install.py` writes, such as
+`~/.gitconfig.local`, are recreated with each new container. Erased caches and Neovim plugins are downloaded
+again when first needed. To keep a tool across rebuilds, add it to the `Dockerfile` (see
+[Customizing the image](#customizing-the-image)). For why Zed hides older threads after a rebuild, see
+[Known issues](#agent-threads-disappear-after-a-rebuild).
+
 > [!NOTE]
 > After a rebuild, an open Zed window loses its connection to the old container and shows "container is not running".
 > Reopen the project with **Project: Open Remote** -> **Connect Dev Container**.
