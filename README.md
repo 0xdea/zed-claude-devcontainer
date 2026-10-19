@@ -41,10 +41,10 @@ Main changes from upstream:
 - **Umask workaround**: the image restores umask `022` in the system-wide init for bash, zsh, and fish, because some
   Docker engines start `docker exec` processes, such as Zed's, with umask `0000`. Processes that don't start a shell
   aren't covered; see [Known issues](#known-issues).
-- **Git settings in `containerEnv`**: `core.checkStat=minimal` and `core.trustctime=false` are set through
-  `GIT_CONFIG_COUNT`/`GIT_CONFIG_KEY_*`/`GIT_CONFIG_VALUE_*`, so git doesn't treat bind-mounted files as modified just
-  because their inode or ctime metadata differs from what the host recorded. Environment variables are used because the
-  host `~/.gitconfig` is mounted read-only.
+- **Git settings for bind mounts**: `core.checkStat=minimal` and `core.trustctime=false` are set in the container's
+  `~/.gitconfig.local` (written by `post_install.py`, since the host `~/.gitconfig` is mounted read-only), so git
+  doesn't treat bind-mounted files as modified just because their inode or ctime metadata differs from what the host
+  recorded.
 - **fish as the default shell**: fish is the login shell, `$SHELL`, and the `devc shell` default, with the `.zshrc`
   aliases and fzf integration ported to `devcontainer.fish` and its history kept on the `/commandhistory` volume. Claude
   Code's Bash tool stays on zsh via `CLAUDE_CODE_SHELL`.

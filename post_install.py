@@ -282,6 +282,10 @@ node_modules/
 [core]
     excludesfile = {gitignore}
     pager = delta
+    # Bind-mounted files have inode and ctime metadata that differs from what the host
+    # recorded, which would otherwise make git report them as modified
+    checkStat = minimal
+    trustctime = false
 
 [interactive]
     diffFilter = delta --color-only

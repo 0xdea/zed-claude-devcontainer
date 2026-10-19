@@ -40,12 +40,7 @@
     "NPM_CONFIG_UPDATE_NOTIFIER": "false",
     "NPM_CONFIG_MIN_RELEASE_AGE": "1",
     "PYTHONDONTWRITEBYTECODE": "1",
-    "PIP_DISABLE_PIP_VERSION_CHECK": "1",
-    "GIT_CONFIG_COUNT": "2",
-    "GIT_CONFIG_KEY_0": "core.checkStat",
-    "GIT_CONFIG_VALUE_0": "minimal",
-    "GIT_CONFIG_KEY_1": "core.trustctime",
-    "GIT_CONFIG_VALUE_1": "false"
+    "PIP_DISABLE_PIP_VERSION_CHECK": "1"
   },
   "remoteEnv": {
     "CLAUDE_CODE_OAUTH_TOKEN": "${localEnv:CLAUDE_CODE_OAUTH_TOKEN:}",
