@@ -45,6 +45,8 @@ Main changes from upstream:
   `~/.gitconfig.local` (written by `post_install.py`, since the host `~/.gitconfig` is mounted read-only), so git
   doesn't treat bind-mounted files as modified just because their inode or ctime metadata differs from what the host
   recorded.
+- **Git uses the gh login**: the same file sets `gh auth git-credential` as git's credential helper for GitHub, so
+  `git push` over HTTPS works with the persisted `gh` login after every rebuild (see [GitHub access](#github-access)).
 - **fish as the default shell**: fish is the login shell, `$SHELL`, and the `devc shell` default, with the `.zshrc`
   aliases and fzf integration ported to `devcontainer.fish` and its history kept on the `/commandhistory` volume. Claude
   Code's Bash tool stays on zsh via `CLAUDE_CODE_SHELL`.
@@ -61,11 +63,11 @@ Main changes from upstream:
   against a virtual X display.
 - **`devc rebuild --no-cache`**: rebuilds the image without Docker's build cache, to refresh the tools the image
   installs at their latest version, while still running `devc`'s checks.
+- **JSON schema**: `devcontainer.json` uses the base devcontainer schema, avoiding an unresolvable `vscode://` reference
+  that editors other than VS Code report as an error.
 - **CI and dependency updates**: a `build` workflow lints the template, builds the image and checks the container, and
   runs zizmor; Renovate also tracks the Node.js and Python series and the CI's hadolint image, with a 10-day minimum
   release age.
-- **JSON schema**: `devcontainer.json` uses the base devcontainer schema, avoiding an unresolvable `vscode://` reference
-  that editors other than VS Code report as an error.
 
 ## Why use this?
 
@@ -205,6 +207,25 @@ project folder:
 Ubuntu security fixes reach the image through the base image updates that Renovate proposes, and through
 `devc rebuild --no-cache` for the packages the `Dockerfile` installs. For an urgent fix, `sudo apt-get upgrade` inside
 the container applies it right away, but only until the container is recreated.
+
+## GitHub access
+
+Each project has its own `gh` login, stored in its `~/.config/gh` volume, so it survives rebuilds. Log in once inside
+the container with `gh auth login`; git then uses that login for HTTPS remotes on GitHub, so `git push` works without
+further setup.
+
+> [!WARNING]
+> Anything running in the container can read that token and use it, including the code you're reviewing. For
+> repositories you don't fully trust, either don't log in to `gh` in that project at all, or use a
+> [fine-grained personal access token](https://github.com/settings/personal-access-tokens/new) limited to the
+> repositories you need, with only the permissions you need (for example, **Contents: read and write** to push):
+>
+> ```sh
+> gh auth login --with-token   # paste the token, then press Ctrl-D
+> ```
+>
+> A classic token or a `gh auth login` through the browser grants access to all your repositories. That's acceptable
+> only for projects whose code you trust. To remove a login, run `gh auth logout` in the container.
 
 ## Customizing the image
 

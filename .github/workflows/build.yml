@@ -77,6 +77,7 @@ jobs:
             test -f ~/.gitconfig.local
             test "$(git config --global --get core.checkStat)" = minimal
             test "$(git config --global --get core.trustctime)" = false
+            git config --global --get-all credential.https://github.com.helper | grep -Fx "!gh auth git-credential" >/dev/null
             # set -e ignores commands negated with !, hence the explicit exits
             ! touch .git/config || exit 1
             ! touch .devcontainer/x || exit 1

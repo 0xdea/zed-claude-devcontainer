@@ -305,6 +305,15 @@ node_modules/
 [gpg "ssh"]
     program = /usr/bin/ssh-keygen
 
+# Let git use the gh login (on the ~/.config/gh volume) for HTTPS remotes, as
+# `gh auth setup-git` would; this file is rewritten on every container creation
+[credential "https://github.com"]
+    helper =
+    helper = !gh auth git-credential
+[credential "https://gist.github.com"]
+    helper =
+    helper = !gh auth git-credential
+
 # Bind mounts report a foreign uid, which trips git's ownership check
 [safe]
     directory = *
