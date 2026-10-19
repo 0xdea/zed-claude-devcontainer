@@ -161,7 +161,13 @@ ARG CARGO_BINSTALL_VERSION=1.25.3
 RUN curl -fsSL "https://github.com/cargo-bins/cargo-binstall/releases/download/v${CARGO_BINSTALL_VERSION}/cargo-binstall-$(uname -m)-unknown-linux-musl.tgz" | \
     tar -xz -C "$CARGO_HOME/bin" && \
   cargo binstall -y --locked --strategies crate-meta-data,compile --disable-telemetry --no-discover-github-token \
-    cargo-audit cargo-deny cargo-semver-checks cargo-nextest cargo-generate cargo-dylint dylint-link
+    cargo-deny cargo-semver-checks cargo-nextest cargo-generate cargo-dylint dylint-link && \
+  # cargo-audit's releases are tagged cargo-audit/vX.Y.Z in the rustsec/rustsec monorepo, which
+  # cargo-binstall can't guess, so point it at them instead of compiling from source
+  cargo binstall -y --locked --strategies crate-meta-data,compile --disable-telemetry --no-discover-github-token \
+    --pkg-url '{ repo }/releases/download/cargo-audit/v{ version }/{ name }-{ target }-v{ version }.tgz' \
+    --pkg-fmt tgz --bin-dir '{ name }-{ target }-v{ version }/{ bin }{ binary-ext }' \
+    cargo-audit
 
 # Install Oh My Zsh
 # renovate: datasource=github-releases depName=deluan/zsh-in-docker
