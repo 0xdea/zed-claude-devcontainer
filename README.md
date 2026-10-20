@@ -269,8 +269,9 @@ The build clones `DOTFILES_REPO` and stows it into `~`:
 - An optional `claude` package is stowed into the `~/.claude` volume when the container is created. If it includes
   `settings.json`, enable `bypassPermissions` there yourself (`"permissions": {"defaultMode": "bypassPermissions"}`).
   A `settings.json` already in the volume blocks stowing the package; delete it once.
-- A plain `devc rebuild` keeps the cached clone. Use `devc rebuild --no-cache`, or update the running container until
-  it's recreated (the stowed files are symlinks; re-run `stow` only for new files):
+- A plain `devc rebuild` reuses the cached clone, so new commits in your dotfiles repo don't reach the image;
+  `devc rebuild --no-cache` picks them up. To apply them to the running container right away, pull inside it. This
+  lasts until the container is recreated. The stowed files are symlinks, so re-run `stow` only for new files:
 
   ```sh
   git -C ~/.dotfiles pull
