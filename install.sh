@@ -37,7 +37,7 @@ Commands:
     template [dir]      Copy devcontainer template to directory (default: current)
     exec <cmd>          Execute a command in the running container
     upgrade             Upgrade Claude Code to latest version
-    mount <host> <cont> Add a mount to the devcontainer (recreates container)
+    mount <host> <cont> [--readonly]  Add a mount to the devcontainer (recreates container)
     sync [project] [--trusted]  Sync sessions from devcontainers to host
     cp <cont> <host>    Copy files/directories from container to host
     destroy [-f]        Remove container, volumes, and image for current project
@@ -54,6 +54,7 @@ Examples:
     devc exec ls -la            # Run command in container
     devc upgrade                # Upgrade Claude Code to latest
     devc mount ~/data /data     # Add mount to container
+    devc mount ~/ref /ref --readonly  # Add read-only mount (--readonly goes last)
     devc sync                   # Sync sessions from all devcontainers
     devc sync crypto            # Sync only matching devcontainer
     devc cp /some/file ./out    # Copy a path from container to host

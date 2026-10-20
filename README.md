@@ -244,6 +244,19 @@ devc update
 Commit to the fork, not to `~/.claude-devcontainer`: `devc update` pulls with `--ff-only`, which fails once the two
 diverge. Merge this repository into your fork to get later changes.
 
+### Extra mounts
+
+`devc mount` shares another host folder with the container. It adds the mount to `devcontainer.json`, where
+`devc template .` keeps it, and recreates the container (see [What each command keeps](#what-each-command-keeps)):
+
+```sh
+devc mount ~/drop /drop              # read-write, for passing files in and out
+devc mount ~/ref /ref --readonly     # read-only; --readonly must come last
+```
+
+Code in the container can change anything in a writable mount on the host: prefer `--readonly`, and never mount broad
+folders such as your home folder. Host paths can't contain commas.
+
 ### Dotfiles
 
 The build clones `DOTFILES_REPO` and stows it into `~`:
