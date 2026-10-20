@@ -27,39 +27,39 @@ print_usage() {
 Usage: devc <command> [options]
 
 Commands:
-    .                   Install devcontainer template to current directory and start
-    up                  Start the devcontainer in current directory
-    rebuild [--no-cache] Rebuild the devcontainer (preserves auth volumes)
-    down                Stop the devcontainer
-    shell               Open a shell in the running container
-    self-install        Install 'devc' command to ~/.local/bin
-    update              Update devc to the latest version
-    template [dir]      Copy devcontainer template to directory (default: current)
-    exec <cmd>          Execute a command in the running container
-    upgrade             Upgrade Claude Code to latest version
+    .                                 Install devcontainer template to current directory and start
+    up                                Start the devcontainer in current directory
+    rebuild [--no-cache]              Rebuild the devcontainer (preserves auth volumes)
+    down                              Stop the devcontainer
+    shell                             Open a shell in the running container
+    self-install                      Install 'devc' command to ~/.local/bin
+    update                            Update devc to the latest version
+    template [dir]                    Copy devcontainer template to directory (default: current)
+    exec <cmd>                        Execute a command in the running container
+    upgrade                           Upgrade Claude Code to latest version
     mount <host> <cont> [--readonly]  Add a mount to the devcontainer (recreates container)
-    sync [project] [--trusted]  Sync sessions from devcontainers to host
-    cp <cont> <host>    Copy files/directories from container to host
-    destroy [-f]        Remove container, volumes, and image for current project
-    help                Show this help message
+    sync [project] [--trusted]        Sync sessions from devcontainers to host
+    cp <cont> <host>                  Copy files/directories from container to host
+    destroy [-f]                      Remove container, volumes, and image for current project
+    help                              Show this help message
 
 Examples:
-    devc .                      # Install template and start container
-    devc up                     # Start container in current directory
-    devc rebuild                # Clean rebuild
-    devc rebuild --no-cache     # Rebuild without Docker's cache (refreshes tools)
-    devc shell                  # Open interactive shell
-    devc self-install           # Install devc to PATH
-    devc update                 # Update to latest version
-    devc exec ls -la            # Run command in container
-    devc upgrade                # Upgrade Claude Code to latest
-    devc mount ~/data /data     # Add mount to container
+    devc .                            # Install template and start container
+    devc up                           # Start container in current directory
+    devc rebuild                      # Clean rebuild
+    devc rebuild --no-cache           # Rebuild without Docker's cache (refreshes tools)
+    devc shell                        # Open interactive shell
+    devc self-install                 # Install devc to PATH
+    devc update                       # Update to latest version
+    devc exec ls -la                  # Run command in container
+    devc upgrade                      # Upgrade Claude Code to latest
+    devc mount ~/data /data           # Add mount to container
     devc mount ~/ref /ref --readonly  # Add read-only mount (--readonly goes last)
-    devc sync                   # Sync sessions from all devcontainers
-    devc sync crypto            # Sync only matching devcontainer
-    devc cp /some/file ./out    # Copy a path from container to host
-    devc destroy                # Remove all project Docker resources
-    devc destroy -f             # Skip confirmation prompt
+    devc sync                         # Sync sessions from all devcontainers
+    devc sync crypto                  # Sync only matching devcontainer
+    devc cp /some/file ./out          # Copy a path from container to host
+    devc destroy                      # Remove all project Docker resources
+    devc destroy -f                   # Skip confirmation prompt
 EOF
 }
 
