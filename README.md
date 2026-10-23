@@ -282,13 +282,14 @@ The build clones `DOTFILES_REPO` and stows it into `~`:
 
 ### World-writable files on the host
 
-Some Docker engines, OrbStack among them, start `docker exec` processes with umask `0000`. fish and zsh restore `022`
-in every shell, so your terminals, Claude Code's Bash tool (zsh), and what they run are fine; bash restores it only in
-interactive shells. Everything else keeps `0000`, such as `sh -c` and non-interactive `bash -c` (including
-`devc exec bash -c …`), and Zed's remote server (which saves your edits) with what it launches (language servers,
-`cargo check`, git). Their files in the project folder are world-writable, so other users on the host can modify
-them. Git doesn't record these permissions. To check your engine, run `docker exec <container> sh -c umask`. To find
-and fix such files from the host (`-type` skips symlinks, which `chmod` would follow):
+Some Docker engines, OrbStack among them ([orbstack/orbstack#2759](https://github.com/orbstack/orbstack/issues/2759)),
+start `docker exec` processes with umask `0000`. fish and zsh restore `022` in every shell, so your terminals, Claude
+Code's Bash tool (zsh), and what they run are fine; bash restores it only in interactive shells. Everything else keeps
+`0000`, such as `sh -c` and non-interactive `bash -c` (including `devc exec bash -c …`), and Zed's remote server (which
+saves your edits) with what it launches (language servers, `cargo check`, git). Their files in the project folder are
+world-writable, so other users on the host can modify them. Git doesn't record these permissions. To check your engine,
+run `docker exec <container> sh -c umask`. To find and fix such files from the host (`-type` skips symlinks, which
+`chmod` would follow):
 
 ```sh
 find <project> \( -type f -o -type d \) -perm -0002
