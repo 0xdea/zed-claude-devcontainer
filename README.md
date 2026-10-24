@@ -286,10 +286,11 @@ Some Docker engines, OrbStack among them ([orbstack/orbstack#2759](https://githu
 start `docker exec` processes with umask `0000`. fish and zsh restore `022` in every shell, so your terminals, Claude
 Code's Bash tool (zsh), and what they run are fine; bash restores it only in interactive shells. Everything else keeps
 `0000`, such as `sh -c` and non-interactive `bash -c` (including `devc exec bash -c …`), and Zed's remote server (which
-saves your edits) with what it launches (language servers, `cargo check`, git). Their files in the project folder are
-world-writable, so other users on the host can modify them. Git doesn't record these permissions. To check your engine,
-run `docker exec <container> sh -c umask`. To find and fix such files from the host (`-type` skips symlinks, which
-`chmod` would follow):
+saves your edits) with what it launches (language servers, `cargo check`, git), since Zed doesn't apply the shell's
+umask to it ([zed-industries/zed#57185](https://github.com/zed-industries/zed/issues/57185)). Their files in the project
+folder are world-writable, so other users on the host can modify them. Git doesn't record these permissions. To check
+your engine, run `docker exec <container> sh -c umask`. To find and fix such files from the host (`-type` skips
+symlinks, which `chmod` would follow):
 
 ```sh
 find <project> \( -type f -o -type d \) -perm -0002
