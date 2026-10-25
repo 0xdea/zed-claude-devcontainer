@@ -12,8 +12,8 @@
 >
 > -- Matthew Garrett
 
-A sandboxed dev container for running [Claude Code](https://claude.com/product/claude-code) with `bypassPermissions` enabled,
-from [Zed](https://zed.dev) or a terminal. Designed for security audits and Rust development.
+A sandboxed dev container for running [Claude Code](https://claude.com/product/claude-code) with `bypassPermissions`
+enabled, from [Zed](https://zed.dev) or a terminal. Designed for security audits and Rust development.
 
 ## About this fork
 
@@ -89,7 +89,11 @@ devc .          # installs .devcontainer/ and starts the container
 ```
 
 The repository's `.git/config` and `.git/hooks` are mounted read-only, so code in the container can't plant git config
-or hooks that run on your host.
+or hooks that run on your host. Git commands that write the config fail there, such as `git remote add`, `git config`
+without `--global`, and the upstream tracking `git push -u` records: run them on the host.
+
+The container's global gitignore excludes paths such as `.claude/`, `.vscode/`, `.idea/`, and `*.log`, so files planted
+under those names don't show up in `git status` inside the container. Check with `git status --ignored`, or on the host.
 
 ### Pattern B: shared workspace (not a git repository)
 
