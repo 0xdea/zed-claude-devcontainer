@@ -75,7 +75,6 @@ RUN ARCH=$(dpkg --print-architecture) && \
 
 # Create directories and set ownership (combined for fewer layers)
 RUN mkdir -p /commandhistory /workspaces /home/vscode/.claude /opt && \
-  touch /commandhistory/.bash_history && \
   touch /commandhistory/.zsh_history && \
   mkdir -p /commandhistory/fish && \
   chown -R vscode:vscode /commandhistory /workspaces /home/vscode/.claude /opt

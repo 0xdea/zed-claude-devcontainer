@@ -87,6 +87,16 @@ check_devcontainer_cli() {
   fi
 }
 
+# jq failures are mostly ignored below (e.g. check_no_sys_admin reads one as
+# "no SYS_ADMIN"), so a missing jq would silently skip checks and drop mounts.
+check_jq() {
+  if ! command -v jq &>/dev/null; then
+    log_error "jq not found."
+    log_info "Install it with your package manager, e.g.: brew install jq"
+    exit 1
+  fi
+}
+
 check_no_sys_admin() {
   local workspace="${1:-.}"
   local dc_json="$workspace/.devcontainer/devcontainer.json"
@@ -100,8 +110,11 @@ check_no_sys_admin() {
   fi
 }
 
+# Always the absolute path with symlinks resolved: containers are found by
+# their devcontainer.local_folder label, which must match the path they were
+# created with ("devc ." passes ".", which the CLI resolves to the real path).
 get_workspace_folder() {
-  echo "${1:-$(pwd)}"
+  (cd "${1:-.}" && pwd -P)
 }
 
 # Docker rejects a bind mount whose source is missing, so the .git mounts break
@@ -207,6 +220,8 @@ update_devcontainer_mounts() {
 }
 
 cmd_template() {
+  check_jq
+
   local target_dir="${1:-.}"
   target_dir="$(cd "$target_dir" 2>/dev/null && pwd)" || {
     log_error "Directory does not exist: $1"
@@ -259,6 +274,7 @@ cmd_up() {
   workspace_folder="$(get_workspace_folder "${1:-}")"
 
   check_devcontainer_cli
+  check_jq
   check_no_sys_admin "$workspace_folder"
   strip_git_mounts_if_not_repo \
     "$workspace_folder/.devcontainer/devcontainer.json" "$workspace_folder"
@@ -288,6 +304,7 @@ cmd_rebuild() {
   workspace_folder="$(get_workspace_folder "${1:-}")"
 
   check_devcontainer_cli
+  check_jq
   check_no_sys_admin "$workspace_folder"
   strip_git_mounts_if_not_repo \
     "$workspace_folder/.devcontainer/devcontainer.json" "$workspace_folder"
@@ -384,9 +401,12 @@ cmd_mount() {
   fi
 
   check_devcontainer_cli
+  check_jq
+  check_no_sys_admin "$workspace_folder"
 
   log_info "Adding mount: $host_path → $container_path"
   update_devcontainer_mounts "$devcontainer_json" "$host_path" "$container_path" "$readonly"
+  strip_git_mounts_if_not_repo "$devcontainer_json" "$workspace_folder"
 
   log_info "Recreating container with new mount..."
   devcontainer up --workspace-folder "$workspace_folder" --remove-existing-container
@@ -807,6 +827,7 @@ cmd_destroy() {
   local workspace_folder
   workspace_folder="$(get_workspace_folder "${1:-}")"
 
+  check_jq
   discover_resources "$workspace_folder"
 
   # No resources found (idempotent behavior)

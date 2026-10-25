@@ -2,11 +2,13 @@
 """Post-install configuration for Claude Code devcontainer.
 
 Runs on container creation to set up:
+- Directory ownership fixes for mounted volumes
+- Claude dotfiles (stowed from ~/.dotfiles)
 - Onboarding bypass (when CLAUDE_CODE_OAUTH_TOKEN is set)
 - Claude settings (bypassPermissions mode)
 - Tmux configuration (200k history, mouse support)
-- Directory ownership fixes for mounted volumes
-- Claude dotfiles (stowed from ~/.dotfiles)
+- Fish history directory on the /commandhistory volume
+- Global gitignore and container-local git config
 """
 
 import contextlib
