@@ -12,7 +12,7 @@
 >
 > -- Matthew Garrett
 
-A dev container for running [Claude Code](https://claude.com/product/claude-code) with `bypassPermissions` enabled,
+A sandboxed dev container for running [Claude Code](https://claude.com/product/claude-code) with `bypassPermissions` enabled,
 from [Zed](https://zed.dev) or a terminal. Designed for security audits and Rust development.
 
 ## About this fork
@@ -127,13 +127,13 @@ run inside it. Without Zed, `devc shell` opens a fish shell in the container.
 
 Run these on the host, in the project folder. Zed never rebuilds the container by itself.
 
-| Goal                                                                       | Commands                                         |
-| -------------------------------------------------------------------------- | ------------------------------------------------ |
-| Pick up a new version of this template                                     | `devc update`, `devc template .`, `devc rebuild` |
-| Apply your edits to `.devcontainer/`, or a new `CLAUDE_CODE_OAUTH_TOKEN`   | `devc rebuild`                                   |
-| Get the latest Claude Code, Rust and cargo tools, apt packages, dotfiles   | `devc rebuild --no-cache`                        |
-| Get the latest Claude Code only                                            | `devc upgrade`                                   |
-| Start over with empty volumes                                              | `devc destroy`, then `devc .`                    |
+| Goal                                                                     | Commands                                         |
+| ------------------------------------------------------------------------ | ------------------------------------------------ |
+| Pick up a new version of this template                                   | `devc update`, `devc template .`, `devc rebuild` |
+| Apply your edits to `.devcontainer/`, or a new `CLAUDE_CODE_OAUTH_TOKEN` | `devc rebuild`                                   |
+| Get the latest Claude Code, Rust and cargo tools, apt packages, dotfiles | `devc rebuild --no-cache`                        |
+| Get the latest Claude Code only                                          | `devc upgrade`                                   |
+| Start over with empty volumes                                            | `devc destroy`, then `devc .`                    |
 
 - `devc update` updates `devc` and the template in `~/.claude-devcontainer`; projects aren't touched.
 - `devc template .` replaces the project's `.devcontainer/` after asking. It keeps only mounts added with
@@ -212,11 +212,11 @@ login, including on the host.
 
 ## Customizing the image
 
-| Where you change it                                                             | Lasts until                   |
-| ------------------------------------------------------------------------------- | ----------------------------- |
-| Inside the container, such as `devc exec sudo apt-get install -y <package>`     | The container is recreated    |
-| The project's `.devcontainer/`, then `devc rebuild`                             | The next `devc template .`    |
-| Your fork of this repository                                                    | Always                        |
+| Where you change it                                                         | Lasts until                |
+| --------------------------------------------------------------------------- | -------------------------- |
+| Inside the container, such as `devc exec sudo apt-get install -y <package>` | The container is recreated |
+| The project's `.devcontainer/`, then `devc rebuild`                         | The next `devc template .` |
+| Your fork of this repository                                                | Always                     |
 
 The `Dockerfile`'s build arguments are `DOTFILES_REPO`, `NODE_VERSION`, `PYTHON_VERSION`, `NEOVIM_VERSION`,
 `FZF_VERSION`, `GIT_DELTA_VERSION`, `CARGO_BINSTALL_VERSION`, and `ZSH_IN_DOCKER_VERSION`. Set them in
