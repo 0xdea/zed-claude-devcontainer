@@ -12,9 +12,8 @@
 >
 > -- Matthew Garrett
 
-A containerized development environment for running [Claude Code](https://claude.com/product/claude-code) with
-`bypassPermissions` enabled, from [Zed](https://zed.dev) or a terminal. Designed for security audits and Rust
-development.
+A dev container for running [Claude Code](https://claude.com/product/claude-code) with `bypassPermissions` enabled,
+from [Zed](https://zed.dev) or a terminal. Designed for security audits and Rust development.
 
 ## About this fork
 
@@ -67,7 +66,7 @@ repositories, letting Claude change code freely, and work across several related
 - [Zed](https://zed.dev/), optional.
 - [jq](https://jqlang.org/), which `devc` uses to edit `devcontainer.json` (included in macOS 15 and later).
 - [Node.js](https://nodejs.org/) and npm.
-- `devc` and the devcontainers CLI, installed once:
+- `devc` and the Dev Container CLI, installed once:
 
   ```sh
   npm install -g @devcontainers/cli
