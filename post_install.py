@@ -261,6 +261,7 @@ node_modules/
 *~
 .idea/
 .vscode/
+.zed/
 *.sublime-*
 
 # Misc
