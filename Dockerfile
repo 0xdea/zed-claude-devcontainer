@@ -50,7 +50,7 @@ COPY --from=uv /uv /usr/local/bin/uv
 
 # Install fzf from GitHub releases (newer than apt, includes built-in shell integration)
 # renovate: datasource=github-releases depName=junegunn/fzf
-ARG FZF_VERSION=0.74.4
+ARG FZF_VERSION=0.74.5
 RUN ARCH=$(dpkg --print-architecture) && \
   case "${ARCH}" in \
     amd64) FZF_ARCH="linux_amd64" ;; \
@@ -121,7 +121,7 @@ RUN curl -fsSL https://claude.ai/install.sh | bash && \
 
 # Install Python via uv (fast binary download, not source compilation)
 # renovate: datasource=python-version depName=python
-ARG PYTHON_VERSION=3.14
+ARG PYTHON_VERSION=3.15
 RUN uv python install "${PYTHON_VERSION}" --default
 
 # Install ast-grep (AST-based code search) and zizmor (GitHub Actions security linter)
