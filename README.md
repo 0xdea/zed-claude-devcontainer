@@ -89,10 +89,10 @@ devc .          # installs .devcontainer/ and starts the container
 ```
 
 The repository's `.git/config` and `.git/hooks` are mounted read-only, so code in the container can't plant git config
-or hooks that run on your host. Git commands that write the config fail there, such as `git remote add`, `git config`
-without `--global`, and the upstream tracking `git push -u` records: run them on the host.
+or hooks that run on your host. Git commands that write the config fail there, such as `git remote add` and `git config`
+without `--global`. `git push -u` pushes but can't record the upstream branch, so set it on the host.
 
-The container's global gitignore excludes paths such as `.claude/`, `.vscode/`, `.idea/`, and `*.log`, so files planted
+The container's global gitignore excludes paths such as `.claude/`, `.vscode/`, `.idea/`, `.zed/`, and `*.log`, so files planted
 under those names don't show up in `git status` inside the container. Check with `git status --ignored`, or on the host.
 
 ### Pattern B: shared workspace (not a git repository)
