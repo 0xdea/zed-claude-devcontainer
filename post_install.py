@@ -268,6 +268,10 @@ node_modules/
 [core]
     excludesfile = {gitignore}
     pager = delta
+    # Bind-mounted files have inode and ctime metadata that differs from what the host
+    # recorded, which would otherwise make git report them as modified
+    checkStat = minimal
+    trustctime = false
 
 [interactive]
     diffFilter = delta --color-only
@@ -286,6 +290,15 @@ node_modules/
 
 [gpg "ssh"]
     program = /usr/bin/ssh-keygen
+
+# What `gh auth setup-git` writes. The gh login persists on its volume, but this file
+# is rewritten on every container creation, so the helper is set here
+[credential "https://github.com"]
+    helper =
+    helper = !gh auth git-credential
+[credential "https://gist.github.com"]
+    helper =
+    helper = !gh auth git-credential
 
 # Bind mounts report a foreign uid, which trips git's ownership check
 [safe]
