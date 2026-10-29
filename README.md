@@ -39,7 +39,10 @@ Changes from upstream:
   `cargo-nextest`, `cargo-generate`, `cargo-dylint`, and `dylint-link` via
   [cargo-binstall](https://github.com/cargo-bins/cargo-binstall) from each project's release binaries (compiling from
   crates.io as a fallback, without QuickInstall builds or telemetry); [zizmor](https://github.com/zizmorcore/zizmor)
-  via uv; `libxdo-dev` and `xvfb` for GUI automation and tests on a virtual display.
+  via uv; `libxdo-dev` and `xvfb` for GUI automation and tests on a virtual display; Clang and libclang for
+  bindgen-based crates such as [idalib](https://github.com/idalib-rs/idalib); a C/C++ cross toolchain, Rust target,
+  and Cargo linker for the other Linux architecture (`x86_64` on arm64 hosts, `aarch64` on x86_64 hosts), for
+  cross-compiling crates whose C/C++ code needs only libc and libstdc++.
 - **Dotfiles**: cloned from `DOTFILES_REPO` and stowed (see [Dotfiles](#dotfiles)).
 - **`devc rebuild --no-cache`**: rebuilds without Docker's build cache, still running `devc`'s checks.
 - **Schema**: `devcontainer.json` uses the base schema, avoiding a `vscode://` reference other editors can't resolve.
@@ -92,8 +95,9 @@ The repository's `.git/config` and `.git/hooks` are mounted read-only, so code i
 or hooks that run on your host. Git commands that write the config fail there, such as `git remote add` and `git config`
 without `--global`. `git push -u` pushes but can't record the upstream branch, so set it on the host.
 
-The container's global gitignore excludes paths such as `.claude/`, `.vscode/`, `.idea/`, `.zed/`, and `*.log`, so files planted
-under those names don't show up in `git status` inside the container. Check with `git status --ignored`, or on the host.
+The container's global gitignore excludes paths such as `.claude/`, `.vscode/`, `.idea/`, `.zed/`, and `*.log`, so files
+planted under those names don't show up in `git status` inside the container. Check with `git status --ignored`, or on
+the host.
 
 ### Pattern B: shared workspace (not a git repository)
 

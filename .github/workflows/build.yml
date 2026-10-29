@@ -45,11 +45,15 @@ jobs:
           hadolint --failure-threshold warning --ignore DL3008 - < Dockerfile
 
   # Install the template into a scratch git workspace the way devc does, then build,
-  # start, and check the container
+  # start, and check the container, on both architectures (each cross-compiles for the other)
   smoke:
-    name: smoke
-    runs-on: ubuntu-latest
+    name: smoke (${{ matrix.runner }})
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-latest, ubuntu-24.04-arm]
     steps:
       - name: checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -89,6 +93,24 @@ jobs:
             # no grep -q: exiting at the first match can break the rustup output under pipefail
             # (and no apostrophes in this script: it is single-quoted)
             rustup target list --installed | grep -Fx wasm32-wasip2 >/dev/null
+            clang --version
+            # bindgen loads libclang at run time
+            ls /usr/lib/llvm-*/lib/libclang.so >/dev/null
+            # cross-compile C++ (cc crate, target libstdc++) and Rust for the other architecture
+            case "$(uname -m)" in
+              aarch64) target=x86_64-unknown-linux-gnu; machine=X86-64 ;;
+              x86_64) target=aarch64-unknown-linux-gnu; machine=AArch64 ;;
+              *) echo "Unsupported architecture: $(uname -m)"; exit 1 ;;
+            esac
+            cargo new -q /tmp/xc
+            cd /tmp/xc
+            printf "%s\n" "#include <string>" "extern \"C\" int len() { return std::string(\"cross\").size(); }" > len.cpp
+            printf "%s\n" "fn main() { cc::Build::new().cpp(true).file(\"len.cpp\").compile(\"len\"); }" > build.rs
+            printf "%s\n" "unsafe extern \"C\" { fn len() -> i32; }" "fn main() { println!(\"{}\", unsafe { len() }); }" > src/main.rs
+            cargo add -q --build cc
+            cargo build -q --target "$target"
+            readelf -h "target/$target/debug/xc" | grep -F "$machine" >/dev/null
+            clang++ --target="$target" -xc++ -std=c++17 -fsyntax-only len.cpp
           '
 
   zizmor:

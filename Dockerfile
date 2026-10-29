@@ -21,6 +21,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   fish \
   # Build tools
   build-essential \
+  # Clang and libclang for bindgen/autocxx (e.g., idalib parses the IDA SDK headers)
+  clang \
+  libclang-dev \
   # GUI/automation deps (jiggy: mouse-rs needs libxdo, tests need a virtual X display)
   libxdo-dev \
   xvfb \
@@ -36,6 +39,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   iptables \
   iproute2 \
   && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# C/C++ cross toolchain for the other Linux architecture, for cross-compiling crates with
+# C/C++ code: its compiler and linker, and its libc and libstdc++ headers, which libclang
+# needs to parse C++ for that target
+RUN case "$(dpkg --print-architecture)" in \
+    arm64) CROSS_GXX="g++-x86-64-linux-gnu" ;; \
+    amd64) CROSS_GXX="g++-aarch64-linux-gnu" ;; \
+    *) echo "Unsupported architecture: $(dpkg --print-architecture)" && exit 1 ;; \
+  esac && \
+  apt-get update && apt-get install -y --no-install-recommends "$CROSS_GXX" && \
+  apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install git-delta
 # renovate: datasource=github-releases depName=dandavison/delta
@@ -79,7 +93,7 @@ RUN mkdir -p /commandhistory /workspaces /home/vscode/.claude /opt && \
   mkdir -p /commandhistory/fish && \
   chown -R vscode:vscode /commandhistory /workspaces /home/vscode/.claude /opt
 
-# System-wide shell init: some engines (e.g. OrbStack) start docker exec processes,
+# System-wide shell init: some engines (e.g., OrbStack) start docker exec processes,
 # such as Zed's, with umask 0000, so restore a sane umask; also add cargo bin to PATH
 # for shells (ENV PATH below covers non-shell processes)
 RUN printf '%s\n' \
@@ -142,12 +156,21 @@ RUN curl -fsSL https://fnm.vercel.app/install | bash -s -- --install-dir "$FNM_D
 ENV PATH="$FNM_DIR/aliases/default/bin:$PATH"
 
 # Install Rust via rustup (stable, minimal profile + common components, wasm32-wasip2
-# target for Zed extensions)
+# target for Zed extensions, and the other Linux architecture's target for cross-compiling)
 ENV RUSTUP_HOME="/home/vscode/.rustup" \
   CARGO_HOME="/home/vscode/.cargo"
-RUN curl --proto '=https' --tlsv1.2 -fsSL https://sh.rustup.rs | \
+# Cargo doesn't pick a cross linker by itself (the cc crate finds the cross compilers on its
+# own), so set it for the cross target in $CARGO_HOME/config.toml, the lowest-priority Cargo
+# config: projects' own configs and environment variables still win
+RUN case "$(dpkg --print-architecture)" in \
+    arm64) CROSS_TARGET="x86_64-unknown-linux-gnu" CROSS_LINKER="x86_64-linux-gnu-gcc" ;; \
+    amd64) CROSS_TARGET="aarch64-unknown-linux-gnu" CROSS_LINKER="aarch64-linux-gnu-gcc" ;; \
+    *) echo "Unsupported architecture: $(dpkg --print-architecture)" && exit 1 ;; \
+  esac && \
+  curl --proto '=https' --tlsv1.2 -fsSL https://sh.rustup.rs | \
   sh -s -- -y --no-modify-path --profile minimal --default-toolchain stable \
-    --component rustfmt,clippy,rust-analyzer --target wasm32-wasip2
+    --component rustfmt,clippy,rust-analyzer --target "wasm32-wasip2,$CROSS_TARGET" && \
+  printf '[target.%s]\nlinker = "%s"\n' "$CROSS_TARGET" "$CROSS_LINKER" >"$CARGO_HOME/config.toml"
 
 # Set via ENV (like fnm) so cargo works in bash, zsh and fish
 ENV PATH="$CARGO_HOME/bin:$PATH"
