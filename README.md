@@ -30,14 +30,8 @@ Changes from upstream:
 - **Zed**: the VS Code customizations are removed, and these docs cover Zed and the terminal.
 - **Project path**: projects are mounted at `/workspaces/<folder name>`, not `/workspace`, so Zed shows each project's
   name.
-- **`postCreateCommand`**: uses the exec (array) form, since Zed mangles string-form lifecycle commands
-  ([zed-industries/zed#62964](https://github.com/zed-industries/zed/issues/62964)); proposed upstream in
-  [#56](https://github.com/trailofbits/claude-code-devcontainer/pull/56).
 - **umask**: fish, zsh, and interactive bash restore umask `022`, because some engines start `docker exec` processes
   with `0000` (see [Known issues](#world-writable-files-on-the-host)).
-- **git**: `~/.gitconfig.local`, written by `post_install.py` because the host `~/.gitconfig` is mounted read-only, sets
-  `core.checkStat=minimal` and `core.trustctime=false` so bind-mounted files don't show as modified, and makes git use
-  the `gh` login for GitHub (see [GitHub access](#github-access)).
 - **fish**: the login shell, `$SHELL`, and `devc shell` default, with `.zshrc`'s aliases and fzf integration in
   `devcontainer.fish` and history on the `/commandhistory` volume. Claude Code's Bash tool still uses zsh.
 - **Tools**: Neovim from GitHub releases (Ubuntu's is too old for lazy.nvim); Rust via rustup with `rustfmt`,
@@ -51,6 +45,12 @@ Changes from upstream:
 - **Schema**: `devcontainer.json` uses the base schema, avoiding a `vscode://` reference other editors can't resolve.
 - **CI and updates**: a `build` workflow lints the template, builds and checks the image, and runs zizmor. Renovate
   also tracks the Node.js and Python series and the CI's hadolint image, with a 10-day minimum release age.
+
+Merged upstream: the exec-form `postCreateCommand`, since Zed mangles string-form lifecycle commands
+([zed-industries/zed#62964](https://github.com/zed-industries/zed/issues/62964)), in
+[#56](https://github.com/trailofbits/claude-code-devcontainer/pull/56); git settings that stop bind-mounted files from
+showing as modified, and the `gh` credential helper across rebuilds, in
+[#59](https://github.com/trailofbits/claude-code-devcontainer/pull/59).
 
 ## Why use this?
 
