@@ -93,6 +93,7 @@ jobs:
             # no grep -q: exiting at the first match can break the rustup output under pipefail
             # (and no apostrophes in this script: it is single-quoted)
             rustup target list --installed | grep -Fx wasm32-wasip2 >/dev/null
+            git lfs version
             clang --version
             # bindgen loads libclang at run time and parses C++ headers like this
             ls /usr/lib/llvm-*/lib/libclang.so >/dev/null

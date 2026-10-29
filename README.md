@@ -40,7 +40,7 @@ Changes from upstream:
   [cargo-binstall](https://github.com/cargo-bins/cargo-binstall) from each project's release binaries (compiling from
   crates.io as a fallback, without QuickInstall builds or telemetry); [zizmor](https://github.com/zizmorcore/zizmor)
   via uv; `libxdo-dev` and `xvfb` for GUI automation and tests on a virtual display; Clang and libclang for
-  bindgen-based crates such as [idalib](https://github.com/idalib-rs/idalib).
+  bindgen-based crates; Git LFS, which a host git config set up by `git lfs install` requires.
 - **Dotfiles**: cloned from `DOTFILES_REPO` and stowed (see [Dotfiles](#dotfiles)).
 - **`devc rebuild --no-cache`**: rebuilds without Docker's build cache, still running `devc`'s checks.
 - **Schema**: `devcontainer.json` uses the base schema, avoiding a `vscode://` reference other editors can't resolve.

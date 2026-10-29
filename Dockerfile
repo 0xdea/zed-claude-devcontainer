@@ -21,10 +21,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   fish \
   # Build tools
   build-essential \
-  # Clang and libclang for bindgen/autocxx (e.g., idalib parses the IDA SDK headers)
+  # Clang and libclang for bindgen/autocxx
   clang \
   libclang-dev \
-  # GUI/automation deps (jiggy: mouse-rs needs libxdo, tests need a virtual X display)
+  # Git LFS: host git configs set up by `git lfs install` make it required, so checking out
+  # a repository with LFS files fails without it
+  git-lfs \
+  # GUI/automation deps
   libxdo-dev \
   xvfb \
   # Utilities
