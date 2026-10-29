@@ -39,12 +39,14 @@ Changes from upstream:
   `cargo-nextest`, `cargo-generate`, `cargo-dylint`, and `dylint-link` via
   [cargo-binstall](https://github.com/cargo-bins/cargo-binstall) from each project's release binaries (compiling from
   crates.io as a fallback, without QuickInstall builds or telemetry); [zizmor](https://github.com/zizmorcore/zizmor)
-  via uv; `libxdo-dev` and `xvfb` for GUI automation and tests on a virtual display.
+  via uv; `libxdo-dev` and `xvfb` for GUI automation and tests on a virtual display; Clang and libclang for
+  bindgen-based crates such as [idalib](https://github.com/idalib-rs/idalib).
 - **Dotfiles**: cloned from `DOTFILES_REPO` and stowed (see [Dotfiles](#dotfiles)).
 - **`devc rebuild --no-cache`**: rebuilds without Docker's build cache, still running `devc`'s checks.
 - **Schema**: `devcontainer.json` uses the base schema, avoiding a `vscode://` reference other editors can't resolve.
-- **CI and updates**: a `build` workflow lints the template, builds and checks the image, and runs zizmor. Renovate
-  also tracks the Node.js and Python series and the CI's hadolint image, with a 10-day minimum release age.
+- **CI and updates**: a `build` workflow lints the template, builds and checks the image on amd64 and arm64, and runs
+  zizmor. Renovate also tracks the Node.js and Python series and the CI's hadolint image, with a 10-day minimum release
+  age.
 
 Merged upstream: the exec-form `postCreateCommand`, since Zed mangles string-form lifecycle commands
 ([zed-industries/zed#62964](https://github.com/zed-industries/zed/issues/62964)), in
@@ -92,8 +94,9 @@ The repository's `.git/config` and `.git/hooks` are mounted read-only, so code i
 or hooks that run on your host. Git commands that write the config fail there, such as `git remote add` and `git config`
 without `--global`. `git push -u` pushes but can't record the upstream branch, so set it on the host.
 
-The container's global gitignore excludes paths such as `.claude/`, `.vscode/`, `.idea/`, `.zed/`, and `*.log`, so files planted
-under those names don't show up in `git status` inside the container. Check with `git status --ignored`, or on the host.
+The container's global gitignore excludes paths such as `.claude/`, `.vscode/`, `.idea/`, `.zed/`, and `*.log`, so files
+planted under those names don't show up in `git status` inside the container. Check with `git status --ignored`, or on
+the host.
 
 ### Pattern B: shared workspace (not a git repository)
 
@@ -246,6 +249,22 @@ devc update
 
 Commit to the fork, not to `~/.claude-devcontainer`: `devc update` pulls with `--ff-only`, which fails once the two
 diverge. Merge this repository into your fork to get later changes.
+
+### Cross-compiling
+
+To build for the other Linux architecture now and then, install the cross toolchain and Rust target in the running
+container; they last until the container is recreated. On an arm64 host:
+
+```sh
+sudo apt-get update && sudo apt-get install -y g++-x86-64-linux-gnu
+rustup target add x86_64-unknown-linux-gnu
+CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER=x86_64-linux-gnu-gcc cargo build --target x86_64-unknown-linux-gnu
+```
+
+On an x86_64 host, use `g++-aarch64-linux-gnu`, `aarch64-unknown-linux-gnu`, and
+`CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc`. This covers crates whose C/C++ code needs only
+libc and libstdc++, including bindgen-based ones; crates that need other system libraries (e.g., through pkg-config)
+don't cross-compile this way.
 
 ### Extra mounts
 

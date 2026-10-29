@@ -21,6 +21,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   fish \
   # Build tools
   build-essential \
+  # Clang and libclang for bindgen/autocxx (e.g., idalib parses the IDA SDK headers)
+  clang \
+  libclang-dev \
   # GUI/automation deps (jiggy: mouse-rs needs libxdo, tests need a virtual X display)
   libxdo-dev \
   xvfb \
@@ -79,7 +82,7 @@ RUN mkdir -p /commandhistory /workspaces /home/vscode/.claude /opt && \
   mkdir -p /commandhistory/fish && \
   chown -R vscode:vscode /commandhistory /workspaces /home/vscode/.claude /opt
 
-# System-wide shell init: some engines (e.g. OrbStack) start docker exec processes,
+# System-wide shell init: some engines (e.g., OrbStack) start docker exec processes,
 # such as Zed's, with umask 0000, so restore a sane umask; also add cargo bin to PATH
 # for shells (ENV PATH below covers non-shell processes)
 RUN printf '%s\n' \

@@ -87,7 +87,7 @@ check_devcontainer_cli() {
   fi
 }
 
-# jq failures are mostly ignored below (e.g. check_no_sys_admin reads one as
+# jq failures are mostly ignored below (e.g., check_no_sys_admin reads one as
 # "no SYS_ADMIN"), so a missing jq would silently skip checks and drop mounts.
 check_jq() {
   if ! command -v jq &>/dev/null; then
@@ -290,7 +290,7 @@ cmd_template() {
 }
 
 # Run `devcontainer up`, then check the privileges Docker actually granted:
-# features (e.g. docker-in-docker) and image metadata can request privileged
+# features (e.g., docker-in-docker) and image metadata can request privileged
 # mode or capabilities that check_no_sys_admin can't see in devcontainer.json.
 devcontainer_up() {
   local result container_id found

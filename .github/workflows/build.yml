@@ -45,11 +45,15 @@ jobs:
           hadolint --failure-threshold warning --ignore DL3008 - < Dockerfile
 
   # Install the template into a scratch git workspace the way devc does, then build,
-  # start, and check the container
+  # start, and check the container, on both architectures
   smoke:
-    name: smoke
-    runs-on: ubuntu-latest
+    name: smoke (${{ matrix.runner }})
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
     steps:
       - name: checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -89,6 +93,10 @@ jobs:
             # no grep -q: exiting at the first match can break the rustup output under pipefail
             # (and no apostrophes in this script: it is single-quoted)
             rustup target list --installed | grep -Fx wasm32-wasip2 >/dev/null
+            clang --version
+            # bindgen loads libclang at run time and parses C++ headers like this
+            ls /usr/lib/llvm-*/lib/libclang.so >/dev/null
+            echo "#include <string>" | clang++ -xc++ -std=c++17 -fsyntax-only -
           '
 
   zizmor:
