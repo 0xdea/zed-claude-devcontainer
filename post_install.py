@@ -2,10 +2,11 @@
 """Post-install configuration for Claude Code devcontainer.
 
 Runs on container creation to set up:
+- Directory ownership fixes for mounted volumes
 - Onboarding bypass (when CLAUDE_CODE_OAUTH_TOKEN is set)
 - Claude settings (bypassPermissions mode)
 - Tmux configuration (200k history, mouse support)
-- Directory ownership fixes for mounted volumes
+- Global gitignore and container-local git config
 """
 
 import contextlib
@@ -35,7 +36,7 @@ def setup_onboarding_bypass():
         )
         return
 
-    # When `CLAUDE_CONFIG_DIR` is set, as is done in `devcontainer.json`, `claude` unexpectedly 
+    # When `CLAUDE_CONFIG_DIR` is set, as is done in `devcontainer.json`, `claude` unexpectedly
     # looks for `.claude.json` in *that* folder, instead of in `~`, contradicting the documentation.
     #  See https://github.com/anthropics/claude-code/issues/3833#issuecomment-3694918874
     claude_json_dir = Path(os.environ.get("CLAUDE_CONFIG_DIR", Path.home()))
@@ -314,10 +315,11 @@ def main():
     """Run all post-install configuration."""
     print("[post_install] Starting post-install configuration...", file=sys.stderr)
 
+    # First: the other steps write to these volumes
+    fix_directory_ownership()
     setup_onboarding_bypass()
     setup_claude_settings()
     setup_tmux_config()
-    fix_directory_ownership()
     setup_global_gitignore()
 
     print("[post_install] Configuration complete!", file=sys.stderr)
