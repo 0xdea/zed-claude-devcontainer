@@ -43,7 +43,6 @@ Changes from upstream:
   bindgen-based crates; Git LFS, which a host git config set up by `git lfs install` requires.
 - **Dotfiles**: cloned from `DOTFILES_REPO` and stowed (see [Dotfiles](#dotfiles)).
 - **`devc rebuild --no-cache`**: rebuilds without Docker's build cache, still running `devc`'s checks.
-- **Schema**: `devcontainer.json` uses the base schema, avoiding a `vscode://` reference other editors can't resolve.
 - **CI and updates**: a `build` workflow lints the template, builds and checks the image on amd64 and arm64, and runs
   zizmor. Renovate also tracks the Node.js and Python series and the CI's hadolint image, with a 10-day minimum release
   age.
@@ -52,7 +51,9 @@ Merged upstream: the exec-form `postCreateCommand`, since Zed mangles string-for
 ([zed-industries/zed#62964](https://github.com/zed-industries/zed/issues/62964)), in
 [#56](https://github.com/trailofbits/claude-code-devcontainer/pull/56); git settings that stop bind-mounted files from
 showing as modified, and the `gh` credential helper across rebuilds, in
-[#59](https://github.com/trailofbits/claude-code-devcontainer/pull/59).
+[#59](https://github.com/trailofbits/claude-code-devcontainer/pull/59); the base `devcontainer.json` schema, avoiding a
+`vscode://` reference other editors can't resolve, and several `devc` fixes (a `jq` check, symlinked workspace paths,
+checks in `devc mount`), in [#57](https://github.com/trailofbits/claude-code-devcontainer/pull/57).
 
 ## Why use this?
 
