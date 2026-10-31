@@ -130,9 +130,11 @@ RUN curl -fsSL https://claude.ai/install.sh | bash && \
 ARG PYTHON_VERSION=3.15
 RUN uv python install "${PYTHON_VERSION}" --default
 
-# Install ast-grep (AST-based code search) and zizmor (GitHub Actions security linter)
+# Install ast-grep (AST-based code search) and zizmor (GitHub Actions security linter),
+# then drop uv's download cache, which the installed tools don't need
 RUN uv tool install ast-grep-cli && \
-  uv tool install zizmor
+  uv tool install zizmor && \
+  uv cache clean
 
 # Install fnm (Fast Node Manager) and Node
 # renovate: datasource=node-version depName=node
