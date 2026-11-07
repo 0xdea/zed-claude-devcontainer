@@ -44,6 +44,9 @@ Changes from upstream:
   by `git lfs install` requires.
 - **Dotfiles**: cloned from `DOTFILES_REPO` and stowed (see [Dotfiles](#dotfiles)).
 - **`devc rebuild --no-cache`**: rebuilds without Docker's build cache, still running `devc`'s checks.
+- **Claude Code's stable channel**: installed and updated (automatically and by `devc upgrade`) from the stable
+  channel, which lags behind latest. To follow latest, set `"autoUpdatesChannel": "latest"` in
+  `~/.claude/settings.json`.
 - **CI and updates**: a `build` workflow lints the template, builds and checks the image on amd64 and arm64, and runs
   zizmor. Renovate also tracks the Node.js and Python series and the CI's hadolint image, with a 10-day minimum release
   age.
@@ -142,8 +145,8 @@ Run these on the host, in the project folder. Zed never rebuilds the container b
 | ------------------------------------------------------------------------ | ------------------------------------------------ |
 | Pick up a new version of this template                                   | `devc update`, `devc template .`, `devc rebuild` |
 | Apply your edits to `.devcontainer/`, or a new `CLAUDE_CODE_OAUTH_TOKEN` | `devc rebuild`                                   |
-| Get the latest Claude Code, Rust and cargo tools, apt packages, dotfiles | `devc rebuild --no-cache`                        |
-| Get the latest Claude Code only                                          | `devc upgrade`                                   |
+| Get the newest Claude Code, Rust and cargo tools, apt packages, dotfiles | `devc rebuild --no-cache`                        |
+| Get the newest Claude Code only                                          | `devc upgrade`                                   |
 | Start over with empty volumes                                            | `devc destroy`, then `devc .`                    |
 
 - `devc update` updates `devc` and the template in `~/.claude-devcontainer`; projects aren't touched.
@@ -293,7 +296,8 @@ The build clones `DOTFILES_REPO` and stows it into `~`:
   `Dockerfile`.
 - If it has no tmux config (`~/.tmux.conf` or `~/.config/tmux/tmux.conf`), `post_install.py` writes a default one.
 - An optional `claude` package is stowed into the `~/.claude` volume when the container is created. If it includes
-  `settings.json`, enable `bypassPermissions` there yourself (`"permissions": {"defaultMode": "bypassPermissions"}`).
+  `settings.json`, enable `bypassPermissions` there yourself (`"permissions": {"defaultMode": "bypassPermissions"}`),
+  and choose the update channel (`"autoUpdatesChannel": "stable"`, or Claude Code's default, `latest`).
   A `settings.json` already in the volume blocks stowing the package; delete it once.
 - A plain `devc rebuild` reuses the cached clone, so new commits in your dotfiles repo don't reach the image;
   `devc rebuild --no-cache` picks them up. To apply them to the running container right away, pull inside it. This

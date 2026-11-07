@@ -33,10 +33,11 @@ jobs:
         run: jq -e . devcontainer.json >/dev/null
       - name: shellcheck
         run: shellcheck -S warning install.sh .zshrc
+      # Like the image's tools, ruff's newest release that is at least 10 days old
       - name: ruff
         run: |
-          pipx run ruff check post_install.py
-          pipx run ruff format --check --diff post_install.py
+          pipx run --pip-args=--uploaded-prior-to=P10D ruff check post_install.py
+          pipx run --pip-args=--uploaded-prior-to=P10D ruff format --check --diff post_install.py
       # DL3008 (pin apt package versions) doesn't suit a dev image
       - name: hadolint
         run: >-
@@ -59,9 +60,11 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # Like the image's tools, the CLI's newest release that is at least 10 days old (with --before,
+      # since the runner's npm predates min-release-age)
       - name: install devcontainers cli
         # zizmor: ignore[adhoc-packages] -- devc needs the CLI; the job has a read-only token and no secrets
-        run: npm install -g @devcontainers/cli@0
+        run: npm install -g @devcontainers/cli@0 --before="$(date -u -d '10 days ago' +%Y-%m-%dT%H:%M:%SZ)"
       - name: install template
         run: |
           mkdir -p "$RUNNER_TEMP/ws"
@@ -78,6 +81,7 @@ jobs:
             test "$(id -un)" = vscode
             claude --version
             jq -e ".permissions.defaultMode == \"bypassPermissions\"" ~/.claude/settings.json
+            jq -e ".autoUpdatesChannel == \"stable\"" ~/.claude/settings.json
             test -f ~/.gitconfig.local
             test "$(git config --global --get core.checkStat)" = minimal
             test "$(git config --global --get core.trustctime)" = false

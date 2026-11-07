@@ -119,8 +119,9 @@ USER vscode
 # Set PATH early so claude and other user-installed binaries are available
 ENV PATH="/home/vscode/.local/bin:$PATH"
 
-# Install Claude Code natively with marketplace plugins
-RUN curl -fsSL https://claude.ai/install.sh | bash && \
+# Install Claude Code natively with marketplace plugins, from the stable channel, which lags
+# behind latest (post_install.py keeps its updates on that channel)
+RUN curl -fsSL https://claude.ai/install.sh | bash -s stable && \
   claude plugin marketplace add anthropics/skills && \
   claude plugin marketplace add trailofbits/skills && \
   claude plugin marketplace add trailofbits/skills-curated

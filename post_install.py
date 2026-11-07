@@ -5,7 +5,7 @@ Runs on container creation to set up:
 - Directory ownership fixes for mounted volumes
 - Claude dotfiles (stowed from ~/.dotfiles)
 - Onboarding bypass (when CLAUDE_CODE_OAUTH_TOKEN is set)
-- Claude settings (bypassPermissions mode)
+- Claude settings (bypassPermissions mode, stable update channel)
 - Tmux configuration (200k history, mouse support)
 - Fish history directory on the /commandhistory volume
 - Global gitignore and container-local git config
@@ -125,6 +125,10 @@ def setup_claude_settings():
     if "permissions" not in settings:
         settings["permissions"] = {}
     settings["permissions"]["defaultMode"] = "bypassPermissions"
+
+    # Keep Claude Code's updates, both automatic ones and `devc upgrade`, on the stable channel
+    # that the image installs from, unless the settings already choose a channel
+    settings.setdefault("autoUpdatesChannel", "stable")
 
     settings_file.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
     print(
