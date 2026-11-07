@@ -36,7 +36,7 @@ Commands:
     update                            Update devc to the latest version
     template [dir]                    Copy devcontainer template to directory (default: current)
     exec <cmd>                        Execute a command in the running container
-    upgrade                           Upgrade Claude Code to latest version
+    upgrade                           Upgrade Claude Code on its update channel
     mount <host> <cont> [--readonly]  Add a mount to the devcontainer (recreates container)
     sync [project] [--trusted]        Sync sessions from devcontainers to host
     cp <cont> <host>                  Copy files/directories from container to host
@@ -52,7 +52,7 @@ Examples:
     devc self-install                 # Install devc to PATH
     devc update                       # Update to latest version
     devc exec ls -la                  # Run command in container
-    devc upgrade                      # Upgrade Claude Code to latest
+    devc upgrade                      # Upgrade Claude Code
     devc mount ~/data /data           # Add mount to container
     devc mount ~/ref /ref --readonly  # Add read-only mount (--readonly goes last)
     devc sync                         # Sync sessions from all devcontainers

@@ -1,6 +1,8 @@
 # Claude Code Devcontainer
 # Based on Microsoft devcontainer image for better devcontainer integration
-FROM ghcr.io/astral-sh/uv:0.13@sha256:af22a52f5eafef3d78e551599d405c02df61919d18028f0cea8eda93bc9986d0 AS uv
+# uv from Docker Hub rather than ghcr.io (same images and digests): Docker Hub gives Renovate
+# release dates, so its 10-day minimum release age applies, while ghcr.io updates would wait forever
+FROM astral/uv:0.13.6@sha256:af22a52f5eafef3d78e551599d405c02df61919d18028f0cea8eda93bc9986d0 AS uv
 FROM mcr.microsoft.com/devcontainers/base:ubuntu24.04@sha256:4bcb1b466771b1ba1ea110e2a27daea2f6093f9527fb75ee59703ec89b5561cb
 
 ARG TZ

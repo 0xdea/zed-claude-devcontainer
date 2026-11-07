@@ -14,6 +14,12 @@
       "description": "Only move Node.js to even (LTS-track) major versions",
       "matchDepNames": ["node"],
       "allowedVersions": "/^\\d*[02468](\\.|$)/"
+    },
+    {
+      "description": "MCR gives no release dates, so the base image's updates would wait forever for minimumReleaseAge: apply them without it",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["mcr.microsoft.com/**"],
+      "minimumReleaseAgeBehaviour": "timestamp-optional"
     }
   ],
   "customManagers": [

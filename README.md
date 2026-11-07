@@ -48,8 +48,8 @@ Changes from upstream:
   channel, which lags behind latest. To follow latest, set `"autoUpdatesChannel": "latest"` in
   `~/.claude/settings.json`.
 - **CI and updates**: a `build` workflow lints the template, builds and checks the image on amd64 and arm64, and runs
-  zizmor. Renovate also tracks the Node.js and Python series and the CI's hadolint image, with a 10-day minimum release
-  age.
+  zizmor. Renovate also tracks the uv image, the Node.js and Python series, and the CI's hadolint image, with a 10-day
+  minimum release age, and the base image without one, since its registry (MCR) gives Renovate no release dates.
 
 Merged upstream: the exec-form `postCreateCommand`, since Zed mangles string-form lifecycle commands
 ([zed-industries/zed#62964](https://github.com/zed-industries/zed/issues/62964)), in
@@ -154,8 +154,8 @@ Run these on the host, in the project folder. Zed never rebuilds the container b
   `devc mount`, and removes the `.git` mounts again in a non-git workspace.
 - `devc rebuild` rebuilds the image and recreates the container. Docker reuses cached steps that haven't changed, and
   its cache is shared across projects, so steps that install the latest version of a tool only rerun with
-  `--no-cache`, which is slow. Versions pinned in the `Dockerfile` (base image, Node.js and Python series, git-delta,
-  fzf, Neovim, cargo-binstall) change only through Renovate.
+  `--no-cache`, which is slow. Versions pinned in the `Dockerfile` (base image, uv, Node.js and Python series,
+  git-delta, fzf, Neovim, cargo-binstall) change only through Renovate.
 - After a rebuild, the open Zed window shows "container is not running": reopen the project with
   **Project: Open Remote** → **Connect Dev Container**.
 
