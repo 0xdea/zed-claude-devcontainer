@@ -90,6 +90,9 @@ jobs:
             cargo audit --version
             cargo nextest --version
             zizmor --version
+            # the default Python must be a final release: an outdated uv installs a pre-release
+            # of a newer series, where packages with compiled extensions can fail to load
+            python3 -c "import sys; assert sys.version_info.releaselevel == \"final\", sys.version"
             # no grep -q: exiting at the first match can break the rustup output under pipefail
             # (and no apostrophes in this script: it is single-quoted)
             rustup target list --installed | grep -Fx wasm32-wasip2 >/dev/null
