@@ -48,8 +48,8 @@ Changes from upstream:
   channel, which lags behind latest. To follow latest, set `"autoUpdatesChannel": "latest"` in
   `~/.claude/settings.json`.
 - **CI and updates**: a `build` workflow lints the template, builds and checks the image on amd64 and arm64, and runs
-  zizmor. Renovate also tracks the uv image, the Node.js and Python series, and the CI's hadolint image, with a 10-day
-  minimum release age, and the base image without one, since its registry (MCR) gives Renovate no release dates.
+  zizmor. Renovate keeps the pinned versions up to date, mostly with a 10-day minimum release age (see
+  [Where versions come from](#where-versions-come-from)).
 
 Merged upstream: the exec-form `postCreateCommand`, since Zed mangles string-form lifecycle commands
 ([zed-industries/zed#62964](https://github.com/zed-industries/zed/issues/62964)), in
@@ -154,13 +154,29 @@ Run these on the host, in the project folder. Zed never rebuilds the container b
   `devc mount`, and removes the `.git` mounts again in a non-git workspace.
 - `devc rebuild` rebuilds the image and recreates the container. Docker reuses cached steps that haven't changed, and
   its cache is shared across projects, so steps that install the latest version of a tool only rerun with
-  `--no-cache`, which is slow. Versions pinned in the `Dockerfile` (base image, uv, Node.js and Python series,
-  git-delta, fzf, Neovim, cargo-binstall) change only through Renovate.
+  `--no-cache`, which is slow. Versions pinned in the repository change only through Renovate (see
+  [Where versions come from](#where-versions-come-from)).
 - After a rebuild, the open Zed window shows "container is not running": reopen the project with
   **Project: Open Remote** → **Connect Dev Container**.
 
 Ubuntu security fixes arrive with Renovate's base image updates and with `devc rebuild --no-cache`. For an urgent fix,
 `sudo apt-get upgrade` in the container works until the container is recreated.
+
+### Where versions come from
+
+Every version in the image, and in CI, comes from one of four places:
+
+| Source                            | Examples                                                                                                                                             | How it moves                                                    | 10-day delay                                                                                                                   |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| **Pinned in the repository**      | uv and hadolint images, git-delta, fzf, Neovim, cargo-binstall, zsh-in-docker, the Python and Node.js series, the CI's actions                       | Renovate's weekly pull request                                  | Yes, enforced by Renovate (`minimumReleaseAge`)                                                                                |
+| **Pinned, without release dates** | the base image                                                                                                                                       | Renovate's weekly pull request                                  | No: MCR gives Renovate no release dates, so a delay would hold its updates forever (hence the warning on Renovate's dashboard) |
+| **Resolved when installed**       | ast-grep, zizmor, and their dependencies; the CI's ruff and devcontainers CLI                                                                        | `devc rebuild --no-cache`, or each CI run                       | Yes, enforced by the installer (`UV_EXCLUDE_NEWER`, pip's `--uploaded-prior-to`, npm's `--before`)                             |
+| **Newest at build time**          | apt packages, Claude Code (stable channel), plugin marketplaces, Rust (stable), cargo tools, the Node.js patch release, fnm, Oh My Zsh, gh, dotfiles | `devc rebuild --no-cache`; Claude Code also with `devc upgrade` | No                                                                                                                             |
+
+When adding a tool, pin what the `Dockerfile` or CI fetches by version, with a `# renovate:` comment, so that Renovate
+applies the delay; install by name only through a package manager that can enforce the delay itself. Anything else
+floats, which is reserved for OS packages, first-party sources, and the toolchains' stable lines. For the same
+reason, uv comes from Docker Hub rather than ghcr.io, which gives Renovate no release dates either.
 
 ### What each command keeps
 
