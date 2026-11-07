@@ -39,8 +39,9 @@ Changes from upstream:
   `cargo-nextest`, `cargo-generate`, `cargo-dylint`, and `dylint-link` via
   [cargo-binstall](https://github.com/cargo-bins/cargo-binstall) from each project's release binaries (compiling from
   crates.io as a fallback, without QuickInstall builds or telemetry); [zizmor](https://github.com/zizmorcore/zizmor)
-  via uv; `libxdo-dev` and `xvfb` for GUI automation and tests on a virtual display; Clang and libclang for
-  bindgen-based crates; Git LFS, which a host git config set up by `git lfs install` requires.
+  via uv, which installs its newest release that is at least 10 days old; `libxdo-dev` and `xvfb` for GUI automation
+  and tests on a virtual display; Clang and libclang for bindgen-based crates; Git LFS, which a host git config set up
+  by `git lfs install` requires.
 - **Dotfiles**: cloned from `DOTFILES_REPO` and stowed (see [Dotfiles](#dotfiles)).
 - **`devc rebuild --no-cache`**: rebuilds without Docker's build cache, still running `devc`'s checks.
 - **CI and updates**: a `build` workflow lints the template, builds and checks the image on amd64 and arm64, and runs

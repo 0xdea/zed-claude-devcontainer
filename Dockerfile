@@ -131,8 +131,11 @@ ARG PYTHON_VERSION=3.15
 RUN uv python install "${PYTHON_VERSION}" --default
 
 # Install ast-grep (AST-based code search) and zizmor (GitHub Actions security linter),
-# then drop uv's download cache, which the installed tools don't need
-RUN uv tool install ast-grep-cli && \
+# then drop uv's download cache, which the installed tools don't need. Like Renovate's
+# updates (minimumReleaseAge), each tool and dependency is its newest release that is at
+# least 10 days old
+RUN export UV_EXCLUDE_NEWER="10 days" && \
+  uv tool install ast-grep-cli && \
   uv tool install zizmor && \
   uv cache clean
 
