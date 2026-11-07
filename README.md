@@ -49,11 +49,13 @@ Changes from upstream:
 
 Merged upstream: the exec-form `postCreateCommand`, since Zed mangles string-form lifecycle commands
 ([zed-industries/zed#62964](https://github.com/zed-industries/zed/issues/62964)), in
-[#56](https://github.com/trailofbits/claude-code-devcontainer/pull/56); git settings that stop bind-mounted files from
-showing as modified, and the `gh` credential helper across rebuilds, in
-[#59](https://github.com/trailofbits/claude-code-devcontainer/pull/59); the base `devcontainer.json` schema, avoiding a
+[#56](https://github.com/trailofbits/claude-code-devcontainer/pull/56); the base `devcontainer.json` schema, avoiding a
 `vscode://` reference other editors can't resolve, and several `devc` fixes (a `jq` check, symlinked workspace paths,
-checks in `devc mount`), in [#57](https://github.com/trailofbits/claude-code-devcontainer/pull/57).
+checks in `devc mount`), in [#57](https://github.com/trailofbits/claude-code-devcontainer/pull/57); a stricter check
+that refuses containers with SYS_ADMIN or privileged mode, in
+[#58](https://github.com/trailofbits/claude-code-devcontainer/pull/58); git settings that stop bind-mounted files from
+showing as modified, and the `gh` credential helper across rebuilds, in
+[#59](https://github.com/trailofbits/claude-code-devcontainer/pull/59).
 
 ## Why use this?
 
