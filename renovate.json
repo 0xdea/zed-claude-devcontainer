@@ -16,10 +16,10 @@
       "allowedVersions": "/^\\d*[02468](\\.|$)/"
     },
     {
-      "description": "MCR gives no release dates, so the base image's updates would wait forever for minimumReleaseAge: apply them without it",
+      "description": "MCR gives no release dates, so minimumReleaseAge could never be met: update the base image without it",
       "matchDatasources": ["docker"],
       "matchPackageNames": ["mcr.microsoft.com/**"],
-      "minimumReleaseAgeBehaviour": "timestamp-optional"
+      "minimumReleaseAge": null
     }
   ],
   "customManagers": [
