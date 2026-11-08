@@ -271,12 +271,12 @@ hcli license install /opt/ida-downloads/idapro_<license-id>.hexlic ~/.idapro
 hcli ida install --yes --install-dir ~/ida-pro-9.5 /opt/ida-downloads/ida-pro_95_armlinux.run   # or _x64linux
 ```
 
-`hcli ida install` installs IDA unattended and accepts its EULA, which idalib needs and which needs the license
-already installed; with an installer file and no `--license-id`, it needs no login. The installation directory must
-not exist yet. `~/ida-pro-9.5` is where idalib looks for IDA 9.5 when `IDADIR` isn't set, and `~/.idapro` is IDA's
-default user directory, so nothing else needs configuring: builds, tests, and rust-analyzer find IDA by themselves.
-These commands are for IDA 9.5, which idalib 0.11 is built for: install the IDA version that your idalib release is
-built for, and adjust the version in the commands.
+`hcli ida install` installs IDA unattended and accepts its EULA, which idalib needs and which needs the license already
+installed; with an installer file and no `--license-id`, it needs no login. It takes a few seconds and about 1 GB of
+disk space. The installation directory must not exist yet. `~/ida-pro-9.5` is where idalib looks for IDA 9.5 when
+`IDADIR` isn't set, and `~/.idapro` is IDA's default user directory, so nothing else needs configuring: builds, tests,
+and rust-analyzer find IDA by themselves. These commands are for IDA 9.5, which idalib 0.11 is built for: install the
+IDA version that your idalib release is built for, and adjust the version in the commands.
 
 IDA lives in the container's own filesystem, like any tool installed by hand, so it survives stopping and restarting
 the container but not recreating it (see [What each command keeps](#what-each-command-keeps)): run the commands
