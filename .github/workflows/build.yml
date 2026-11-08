@@ -97,6 +97,19 @@ jobs:
             # the default Python must be a final release: an outdated uv installs a pre-release
             # of a newer series, where packages with compiled extensions can fail to load
             python3 -c "import sys; assert sys.version_info.releaselevel == \"final\", sys.version"
+            # every shell, interactive or not (bash scripts too), restores the umask that some
+            # engines (e.g., OrbStack) clear to 0000, but keeps any other umask
+            printf "#!/bin/bash\numask\n" > /tmp/umask.sh && chmod +x /tmp/umask.sh
+            test "$(umask 0000 && bash -c umask)" = 0022
+            test "$(umask 0000 && /tmp/umask.sh)" = 0022
+            test "$(umask 0000 && zsh -c umask)" = 022
+            test "$(umask 0000 && fish -c umask)" = 0022
+            test "$(umask 0000 && HOME=/tmp bash -ic umask 2>/dev/null)" = 0022
+            test "$(umask 077 && bash -c umask)" = 0077
+            test "$(umask 077 && /tmp/umask.sh)" = 0077
+            test "$(umask 077 && zsh -c umask)" = 077
+            test "$(umask 077 && fish -c umask)" = 0077
+            test "$(umask 077 && HOME=/tmp bash -ic umask 2>/dev/null)" = 0077
             hcli --version
             # IDA itself is installed by users, at the paths that idalib expects by default, so the
             # template must not set IDADIR (see the README)

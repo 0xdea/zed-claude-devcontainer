@@ -30,8 +30,9 @@ Changes from upstream:
 - **Zed**: the VS Code customizations are removed, and these docs cover Zed and the terminal.
 - **Project path**: projects are mounted at `/workspaces/<folder name>`, not `/workspace`, so Zed shows each project's
   name.
-- **umask**: fish, zsh, and interactive bash restore umask `022`, because some engines start `docker exec` processes
-  with `0000` (see [Known issues](#world-writable-files-on-the-host)).
+- **umask**: fish, zsh, and bash (also non-interactive, through `BASH_ENV`) restore umask `022` when it's `0000`,
+  which is how some engines start `docker exec` processes; any other umask is kept (see
+  [Known issues](#world-writable-files-on-the-host)).
 - **fish**: the login shell, `$SHELL`, and `devc shell` default, with `.zshrc`'s aliases and fzf integration in
   `devcontainer.fish` and history on the `/commandhistory` volume. Claude Code's Bash tool still uses zsh.
 - **Tools**: Neovim from GitHub releases (Ubuntu's is too old for lazy.nvim); Rust via rustup with `rustfmt`,
@@ -402,14 +403,15 @@ The build clones `DOTFILES_REPO` and stows it into `~`:
 ### World-writable files on the host
 
 Some Docker engines, OrbStack among them ([orbstack/orbstack#2759](https://github.com/orbstack/orbstack/issues/2759)),
-start `docker exec` processes with umask `0000`. fish and zsh restore `022` in every shell, so your terminals, Claude
-Code's Bash tool (zsh), and what they run are fine; bash restores it only in interactive shells. Everything else keeps
-`0000`, such as `sh -c` and non-interactive `bash -c` (including `devc exec bash -c …`), and Zed's remote server (which
-saves your edits) with what it launches (language servers, `cargo check`, git), since Zed doesn't apply the shell's
-umask to it ([zed-industries/zed#57185](https://github.com/zed-industries/zed/issues/57185)). Their files in the project
-folder are world-writable, so other users on the host can modify them. Git doesn't record these permissions. To check
-your engine, run `docker exec <container> sh -c umask`. To find and fix such files from the host (`-type` skips
-symlinks, which `chmod` would follow):
+start `docker exec` processes with umask `0000`. fish, zsh, and bash restore `022` when they start with `0000` (keeping
+any other umask, though also resetting a `0000` set on purpose), non-interactive bash too, through `BASH_ENV`, so your
+terminals, Claude Code's Bash tool (zsh), `devc exec bash -c …`, bash scripts, and what they run are fine. Everything
+else keeps `0000`, such as `sh -c` (and bash in POSIX mode, such as when run as `sh`, which ignores `BASH_ENV`), and
+Zed's remote server (which saves your edits) with what it launches (language servers, `cargo check`, git), since Zed
+doesn't apply the shell's umask to it ([zed-industries/zed#57185](https://github.com/zed-industries/zed/issues/57185)).
+Their files in the project folder are world-writable, so other users on the host can modify them. Git doesn't record
+these permissions. To check your engine, run `docker exec <container> sh -c umask`. To find and fix such files from the
+host (`-type` skips symlinks, which `chmod` would follow):
 
 ```sh
 find <project> \( -type f -o -type d \) -perm -0002

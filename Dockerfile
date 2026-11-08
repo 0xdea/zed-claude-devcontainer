@@ -88,18 +88,27 @@ RUN mkdir -p /commandhistory /workspaces /home/vscode/.claude /opt && \
   chown -R vscode:vscode /commandhistory /workspaces /home/vscode/.claude /opt
 
 # System-wide shell init: some engines (e.g., OrbStack) start docker exec processes,
-# such as Zed's, with umask 0000, so restore a sane umask; also add cargo bin to PATH
-# for shells (ENV PATH below covers non-shell processes)
+# such as Zed's, with umask 0000, so restore a sane umask, but only from 0000, keeping
+# any other umask, such as one set on purpose (reading the umask costs a fork per
+# shell, about 0.2 ms); also add cargo bin to PATH for shells (ENV PATH below covers
+# non-shell processes). Non-interactive bash (bash -c, scripts) reads no init file
+# but the one BASH_ENV names (set at the end, so that it doesn't affect the build),
+# hence /etc/bash_env, which runs in every bash script and so only does the umask,
+# hidden from bash -x traces
 RUN printf '%s\n' \
-    '# devcontainer: restore sane umask (docker exec gets 0000 on some engines)' \
-    'umask 022' \
+    '# devcontainer: restore sane umask if cleared (docker exec gets 0000 on some engines)' \
+    'if [ "$(umask)" -eq 0 ]; then umask 022; fi' \
     '# devcontainer: cargo/rustup binaries' \
     'case ":$PATH:" in *":/home/vscode/.cargo/bin:"*) ;; *) export PATH="/home/vscode/.cargo/bin:$PATH" ;; esac' \
     | tee -a /etc/zsh/zshenv /etc/bash.bashrc >/dev/null && \
+  printf '%s\n' \
+    '# devcontainer: restore sane umask if cleared (docker exec gets 0000 on some engines)' \
+    '{ if [ "$(umask)" -eq 0 ]; then umask 022; fi; } 2>/dev/null' \
+    > /etc/bash_env && \
   mkdir -p /etc/fish/conf.d && \
   printf '%s\n' \
-    '# devcontainer: restore sane umask (docker exec gets 0000 on some engines)' \
-    'umask 022' \
+    '# devcontainer: restore sane umask if cleared (docker exec gets 0000 on some engines)' \
+    'if test (umask) -eq 0; umask 022; end' \
     '# devcontainer: cargo/rustup binaries' \
     'fish_add_path -g /home/vscode/.cargo/bin' \
     > /etc/fish/conf.d/container-env.fish
@@ -212,3 +221,7 @@ RUN mkdir -p /home/vscode/.local/share && \
 
 # Copy post_install script
 COPY --chown=vscode:vscode post_install.py /opt/post_install.py
+
+# Let non-interactive bash restore a cleared umask (see the system-wide shell init
+# above); set last, so that the build's own bash steps don't read it
+ENV BASH_ENV=/etc/bash_env
