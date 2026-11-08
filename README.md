@@ -39,10 +39,12 @@ Changes from upstream:
   `cargo-nextest`, `cargo-generate`, `cargo-dylint`, and `dylint-link` via
   [cargo-binstall](https://github.com/cargo-bins/cargo-binstall) from each project's release binaries (compiling from
   crates.io as a fallback, without QuickInstall builds or telemetry); [zizmor](https://github.com/zizmorcore/zizmor)
-  via uv, which installs its newest release that is at least 10 days old; `libxdo-dev` and `xvfb` for GUI automation
-  and tests on a virtual display; Clang and libclang for bindgen-based crates; Git LFS, which a host git config set up
-  by `git lfs install` requires.
+  and [hcli](https://github.com/HexRaysSA/ida-hcli) via uv, which installs their newest releases that are at least 10
+  days old; `libxdo-dev` and `xvfb` for GUI automation and tests on a virtual display; Clang and libclang for
+  bindgen-based crates; Git LFS, which a host git config set up by `git lfs install` requires.
 - **Dotfiles**: cloned from `DOTFILES_REPO` and stowed (see [Dotfiles](#dotfiles)).
+- **IDA Pro** (optional): hcli, and instructions for installing a headless IDA Pro in the container with your own
+  license (see [IDA Pro](#ida-pro-optional)).
 - **`devc rebuild --no-cache`**: rebuilds without Docker's build cache, still running `devc`'s checks.
 - **Claude Code's stable channel**: installed and updated (automatically and by `devc upgrade`) from the stable
   channel, which lags behind latest. To follow latest, set `"autoUpdatesChannel": "latest"` in
@@ -170,7 +172,7 @@ Every version in the image, and in CI, comes from one of four places:
 | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | **Pinned in the repository**      | uv and hadolint images, git-delta, fzf, Neovim, cargo-binstall, zsh-in-docker, the Python and Node.js series, the CI's actions                       | Renovate's weekly pull request                                  | Yes, enforced by Renovate (`minimumReleaseAge`)                                                                                |
 | **Pinned, without release dates** | the base image                                                                                                                                       | Renovate's weekly pull request                                  | No: MCR gives Renovate no release dates, so a delay would hold its updates forever (hence the warning on Renovate's dashboard) |
-| **Resolved when installed**       | ast-grep, zizmor, and their dependencies; the CI's ruff and devcontainers CLI                                                                        | `devc rebuild --no-cache`, or each CI run                       | Yes, enforced by the installer (`UV_EXCLUDE_NEWER`, pip's `--uploaded-prior-to`, npm's `--before`)                             |
+| **Resolved when installed**       | ast-grep, zizmor, hcli, and their dependencies; the CI's ruff and devcontainers CLI                                                                  | `devc rebuild --no-cache`, or each CI run                       | Yes, enforced by the installer (`UV_EXCLUDE_NEWER`, pip's `--uploaded-prior-to`, npm's `--before`)                             |
 | **Newest at build time**          | apt packages, Claude Code (stable channel), plugin marketplaces, Rust (stable), cargo tools, the Node.js patch release, fnm, Oh My Zsh, gh, dotfiles | `devc rebuild --no-cache`; Claude Code also with `devc upgrade` | No                                                                                                                             |
 
 When adding a tool, pin what the `Dockerfile` or CI fetches by version, with a `# renovate:` comment, so that Renovate
@@ -239,6 +241,77 @@ trust, limit it to the repositories you need and omit **Workflows**.
 `gh auth logout` doesn't invalidate a token. Delete a fine-grained token in your GitHub settings. A browser-flow login
 can only be revoked by removing the **GitHub CLI** authorization (Settings → Applications), which signs out every `gh`
 login, including on the host.
+
+## IDA Pro (optional)
+
+The container can run IDA Pro headlessly, through [idalib](https://github.com/idalib-rs/idalib) or IDA's own
+command-line tools, if you have a license that allows a Linux installation. The image includes
+[hcli](https://github.com/HexRaysSA/ida-hcli), but neither IDA nor any setting for it, so projects that don't use IDA
+carry nothing else.
+
+Download the installers and the license on the host, so that your Hex-Rays credentials never enter the container, into
+a folder that only the host writes to. With hcli installed on the host (`hcli login` once):
+
+```sh
+mkdir -p ~/ida-downloads
+hcli download --output-dir ~/ida-downloads ida-pro:9.5:armlinux     # x64linux on an x86_64 host
+hcli license get --id <license-id> --output-dir ~/ida-downloads
+```
+
+Then mount the folder read-only in the project that needs IDA (this recreates the container):
+
+```sh
+devc mount ~/ida-downloads /opt/ida-downloads --readonly
+```
+
+and install IDA in the container (`devc shell`):
+
+```sh
+hcli license install /opt/ida-downloads/idapro_<license-id>.hexlic ~/.idapro
+hcli ida install --yes --install-dir ~/ida-pro-9.5 /opt/ida-downloads/ida-pro_95_armlinux.run   # or _x64linux
+```
+
+`hcli ida install` installs IDA unattended and accepts its EULA, which idalib needs and which needs the license
+already installed; with an installer file and no `--license-id`, it needs no login. The installation directory must
+not exist yet. `~/ida-pro-9.5` is where idalib looks for IDA 9.5 when `IDADIR` isn't set, and `~/.idapro` is IDA's
+default user directory, so nothing else needs configuring: builds, tests, and rust-analyzer find IDA by themselves.
+These commands are for IDA 9.5, which idalib 0.11 is built for: install the IDA version that your idalib release is
+built for, and adjust the version in the commands.
+
+IDA lives in the container's own filesystem, like any tool installed by hand, so it survives stopping and restarting
+the container but not recreating it (see [What each command keeps](#what-each-command-keeps)): run the commands
+above again after that. In exchange, every recreated container starts with a clean IDA, and nothing that code in the
+container changes in it can outlive the container or reach other projects. The downloads stay out of its reach, since
+the folder is read-only.
+
+To keep several versions, such as the IDA your tools use today next to a new major version you're porting them to,
+install each one at its own `~/ida-pro-X.Y`. Each idalib version is built for one IDA version (e.g., idalib 0.11 for
+IDA 9.5) and looks for it there, and binaries find IDA's libraries through their rpath, which is that directory, so:
+
+- Each checkout builds against the IDA that its idalib version expects, and its binaries keep loading that IDA
+  whatever else is installed, which keeps builds for benchmarks valid.
+- Switching a checkout to another idalib version changes `Cargo.lock`, so Cargo rebuilds everything for the new IDA.
+- To work on several versions side by side, use a [git worktree](https://git-scm.com/docs/git-worktree) for each,
+  so that each has its own `target/` and nothing is rebuilt back and forth.
+
+For an installation at another path, such as a beta, set `IDADIR` for each command, and give it its own target
+directory, since Cargo doesn't rebuild when only `IDADIR` changes. Don't export it (or set it with fish's `set -U`):
+builds and rust-analyzer in other target directories would then use that installation too.
+
+```sh
+hcli ida install --yes --no-set-default --install-dir ~/ida-pro-9.6-beta1 /opt/ida-downloads/<beta installer>
+IDADIR=~/ida-pro-9.6-beta1 CARGO_TARGET_DIR=target/ida-9.6-beta1 cargo test --test tests --locked
+```
+
+Python scripts that use IDA's `idapro` package find IDA through `IDADIR` too, or else through hcli's default
+installation: each `hcli ida install` makes the new installation the default (the beta's `--no-set-default` keeps
+it from becoming one), and `hcli ida switch` changes it.
+
+The costs:
+
+- **The license is readable** by anything in the container, including the code you review and its dependencies.
+- **Your Hex-Rays account stays out**: never pass `HCLI_API_KEY` or an hcli login to the container, since they give
+  access to your whole account, not just to one license.
 
 ## Customizing the image
 
