@@ -42,7 +42,7 @@ Changes from upstream:
   and [hcli](https://github.com/HexRaysSA/ida-hcli) via uv, which installs their newest releases that are at least 10
   days old; `libxdo-dev` and `xvfb` for GUI automation and tests on a virtual display; Clang and libclang for
   bindgen-based crates; Git LFS, which a host git config set up by `git lfs install` requires.
-- **Dotfiles**: cloned from `DOTFILES_REPO` and stowed (see [Dotfiles](#dotfiles)).
+- **Dotfiles** (optional): cloned from the host's `DEVC_DOTFILES_REPO` and stowed (see [Dotfiles](#dotfiles)).
 - **IDA Pro** (optional): hcli, and instructions for installing a headless IDA Pro in the container with your own
   license (see [IDA Pro](#ida-pro-optional)).
 - **`devc rebuild --no-cache`**: rebuilds without Docker's build cache, still running `devc`'s checks.
@@ -322,16 +322,18 @@ The costs:
 | The project's `.devcontainer/`, then `devc rebuild`                         | The next `devc template .` |
 | Your fork of this repository                                                | Always                     |
 
-The `Dockerfile`'s build arguments are `DOTFILES_REPO`, `NODE_VERSION`, `PYTHON_VERSION`, `NEOVIM_VERSION`,
-`FZF_VERSION`, `GIT_DELTA_VERSION`, `CARGO_BINSTALL_VERSION`, and `ZSH_IN_DOCKER_VERSION`. Set them in
-`devcontainer.json`:
+The `Dockerfile`'s build arguments are `NODE_VERSION`, `PYTHON_VERSION`, `NEOVIM_VERSION`, `FZF_VERSION`,
+`GIT_DELTA_VERSION`, `CARGO_BINSTALL_VERSION`, and `ZSH_IN_DOCKER_VERSION`, plus `DOTFILES_REPO`, which
+`devcontainer.json` takes from the host (see [Dotfiles](#dotfiles)). Set them in `devcontainer.json`, e.g. to stay
+on Node.js 24 (without comments, since `devc` edits the file with jq):
 
 ```json
 "build": {
   "dockerfile": "Dockerfile",
   "args": {
     "TZ": "${localEnv:TZ:UTC}",
-    "DOTFILES_REPO": "https://github.com/<you>/dotfiles.git"
+    "DOTFILES_REPO": "${localEnv:DEVC_DOTFILES_REPO:}",
+    "NODE_VERSION": "24"
   }
 }
 ```
@@ -378,12 +380,24 @@ folders such as your home folder. Host paths can't contain commas.
 
 ### Dotfiles
 
-The build clones `DOTFILES_REPO` and stows it into `~`:
+Dotfiles are optional. To use yours, set `DEVC_DOTFILES_REPO` on the host, where `devc` runs, e.g. in fish:
 
-- The repository must be cloneable over HTTPS without credentials, since the build has no SSH keys.
-- It must contain `fish`, `nvim`, and `tmux` packages, laid out like your home folder (such as
-  `fish/.config/fish/config.fish`); otherwise the build fails. To change the set, edit the `stow` line in the
-  `Dockerfile`.
+```sh
+set -Ux DEVC_DOTFILES_REPO https://github.com/<you>/dotfiles.git
+```
+
+or with `export` in your zsh or bash profile. `devcontainer.json` passes it to the build, which clones the repository
+and stows it into `~`. Since the template reads it from the host, it survives `devc template .`, and a change takes
+effect at the next `devc rebuild`. Without it, fish, Neovim, and tmux run with their defaults, plus
+`devcontainer.fish` and the tmux config below.
+
+- The variable must be set in the shell that runs `devc`: an image built without it has no dotfiles. `devc up` and
+  `devc rebuild` say so when it isn't.
+- The repository must be cloneable over HTTPS without credentials, since the build has no SSH keys. Don't put a
+  token in the URL: build arguments are visible in the image's history, and the URL in the clone's git config.
+- Its `fish`, `nvim`, and `tmux` packages are stowed if present, each laid out like your home folder (such as
+  `fish/.config/fish/config.fish`). The build fails if it has none of them and no `claude` package. To change the
+  set, edit the `for` loop in the `Dockerfile`.
 - If it has no tmux config (`~/.tmux.conf` or `~/.config/tmux/tmux.conf`), `post_install.py` writes a default one.
 - An optional `claude` package is stowed into the `~/.claude` volume when the container is created. If it includes
   `settings.json`, enable `bypassPermissions` there yourself (`"permissions": {"defaultMode": "bypassPermissions"}`),
@@ -395,7 +409,7 @@ The build clones `DOTFILES_REPO` and stows it into `~`:
 
   ```sh
   git -C ~/.dotfiles pull
-  stow --no-folding -R -d ~/.dotfiles -t ~ fish nvim tmux
+  stow --no-folding -R -d ~/.dotfiles -t ~ fish nvim tmux   # only the packages your repository has
   ```
 
 ## Known issues
