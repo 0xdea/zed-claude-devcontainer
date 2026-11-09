@@ -3,7 +3,7 @@
 # uv from Docker Hub rather than ghcr.io (same images and digests): Docker Hub gives Renovate
 # release dates, so its 10-day minimum release age applies, while ghcr.io updates would wait forever
 FROM astral/uv:0.13.6@sha256:af22a52f5eafef3d78e551599d405c02df61919d18028f0cea8eda93bc9986d0 AS uv
-FROM mcr.microsoft.com/devcontainers/base:ubuntu24.04@sha256:4bcb1b466771b1ba1ea110e2a27daea2f6093f9527fb75ee59703ec89b5561cb
+FROM mcr.microsoft.com/devcontainers/base:ubuntu24.04@sha256:ec556aed93f62aa6d13fe72c5db09da4e29a7c9b87c568dbca0ee5717466926a
 
 ARG TZ
 ENV TZ="$TZ"
@@ -145,7 +145,7 @@ RUN export UV_EXCLUDE_NEWER="10 days" && \
 
 # Install fnm (Fast Node Manager) and Node
 # renovate: datasource=node-version depName=node
-ARG NODE_VERSION=24
+ARG NODE_VERSION=26
 ENV FNM_DIR="/home/vscode/.fnm"
 RUN curl -fsSL https://fnm.vercel.app/install | bash -s -- --install-dir "$FNM_DIR" --skip-shell && \
   export PATH="$FNM_DIR:$PATH" && \
@@ -171,7 +171,7 @@ ENV PATH="$CARGO_HOME/bin:$PATH"
 # back to compiling from crates.io (no QuickInstall third-party builds or statistics,
 # and no GitHub token lookup)
 # renovate: datasource=github-releases depName=cargo-bins/cargo-binstall
-ARG CARGO_BINSTALL_VERSION=1.25.3
+ARG CARGO_BINSTALL_VERSION=1.26.1
 RUN curl -fsSL "https://github.com/cargo-bins/cargo-binstall/releases/download/v${CARGO_BINSTALL_VERSION}/cargo-binstall-$(uname -m)-unknown-linux-musl.tgz" | \
     tar -xz -C "$CARGO_HOME/bin" && \
   cargo binstall -y --locked --strategies crate-meta-data,compile --disable-telemetry --no-discover-github-token \
