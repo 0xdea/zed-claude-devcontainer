@@ -367,6 +367,17 @@ devcontainer_up() {
   return "$status"
 }
 
+# The template reads DEVC_DOTFILES_REPO from the host when it builds the image, so say
+# when it's unset, since an image built then has no dotfiles (only in the commands that
+# build: devc . and devc rebuild)
+note_dotfiles() {
+  local devcontainer_json="$1/.devcontainer/devcontainer.json"
+  if [[ -z "${DEVC_DOTFILES_REPO:-}" ]] &&
+    grep -qF 'DEVC_DOTFILES_REPO' "$devcontainer_json" 2>/dev/null; then
+    log_info "DEVC_DOTFILES_REPO isn't set: an image built now has no dotfiles (see the README's Dotfiles section)."
+  fi
+}
+
 cmd_up() {
   local workspace_folder
   workspace_folder="$(get_workspace_folder "${1:-}")"
@@ -406,6 +417,7 @@ cmd_rebuild() {
   check_no_sys_admin "$workspace_folder"
   strip_git_mounts_if_not_repo \
     "$workspace_folder/.devcontainer/devcontainer.json" "$workspace_folder"
+  note_dotfiles "$workspace_folder"
 
   # Docker reuses cached layers, so steps that install the latest version of a
   # tool (Claude Code, Rust, dotfiles, ...) only rerun without the cache
@@ -832,6 +844,7 @@ cmd_update() {
 cmd_dot() {
   # Install template and start container in one command
   cmd_template "."
+  note_dotfiles "."
   cmd_up "."
 }
 

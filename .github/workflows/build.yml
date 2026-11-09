@@ -83,6 +83,9 @@ jobs:
             jq -e ".permissions.defaultMode == \"bypassPermissions\"" ~/.claude/settings.json
             jq -e ".autoUpdatesChannel == \"stable\"" ~/.claude/settings.json
             test -f ~/.gitconfig.local
+            # dotfiles are opt-in, and CI sets no DEVC_DOTFILES_REPO
+            test ! -e ~/.dotfiles
+            test -f ~/.tmux.conf
             test "$(git config --global --get core.checkStat)" = minimal
             test "$(git config --global --get core.trustctime)" = false
             git config --global --get-all credential.https://github.com.helper | grep -Fx "!gh auth git-credential" >/dev/null

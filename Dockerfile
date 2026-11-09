@@ -196,11 +196,24 @@ COPY --chown=vscode:vscode .zshrc /home/vscode/.zshrc.custom
 # Append custom zshrc to the main one
 RUN echo 'source ~/.zshrc.custom' >> /home/vscode/.zshrc
 
-# Install dotfiles with GNU Stow (--no-folding so tools don't write into the repo)
-# The claude package is stowed by post_install.py, since ~/.claude is a volume mounted at runtime
-ARG DOTFILES_REPO=https://github.com/0xdea/dotfiles.git
-RUN git clone "$DOTFILES_REPO" /home/vscode/.dotfiles && \
-  stow --no-folding -d /home/vscode/.dotfiles -t /home/vscode fish nvim tmux
+# Install dotfiles with GNU Stow (--no-folding so tools don't write into the repo), only if
+# DOTFILES_REPO is set (devcontainer.json passes the host's DEVC_DOTFILES_REPO), and only the
+# packages it has. The claude package is stowed by post_install.py, since ~/.claude is a volume
+# mounted at runtime
+ARG DOTFILES_REPO=""
+RUN if [ -n "$DOTFILES_REPO" ]; then \
+    set -e; \
+    git clone -- "$DOTFILES_REPO" /home/vscode/.dotfiles; \
+    pkgs=""; \
+    for pkg in fish nvim tmux; do \
+      if [ -d "/home/vscode/.dotfiles/$pkg" ]; then pkgs="$pkgs $pkg"; fi; \
+    done; \
+    if [ -z "$pkgs" ] && [ ! -d /home/vscode/.dotfiles/claude ]; then \
+      echo "$DOTFILES_REPO has no fish, nvim, tmux, or claude package" >&2; \
+      exit 1; \
+    fi; \
+    if [ -n "$pkgs" ]; then stow --no-folding -d /home/vscode/.dotfiles -t /home/vscode $pkgs; fi; \
+  fi
 
 # Copy fish configuration
 COPY --chown=vscode:vscode devcontainer.fish /home/vscode/.config/fish/conf.d/devcontainer.fish

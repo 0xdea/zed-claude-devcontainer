@@ -4,7 +4,8 @@
   "build": {
     "dockerfile": "Dockerfile",
     "args": {
-      "TZ": "${localEnv:TZ:UTC}"
+      "TZ": "${localEnv:TZ:UTC}",
+      "DOTFILES_REPO": "${localEnv:DEVC_DOTFILES_REPO:}"
     }
   },
   "features": {
