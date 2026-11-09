@@ -61,7 +61,8 @@ checks in `devc mount`), in [#57](https://github.com/trailofbits/claude-code-dev
 that refuses containers with SYS_ADMIN or privileged mode, in
 [#58](https://github.com/trailofbits/claude-code-devcontainer/pull/58); git settings that stop bind-mounted files from
 showing as modified, and the `gh` credential helper across rebuilds, in
-[#59](https://github.com/trailofbits/claude-code-devcontainer/pull/59).
+[#59](https://github.com/trailofbits/claude-code-devcontainer/pull/59); and a check of the configuration and its
+features before the container starts, in [#60](https://github.com/trailofbits/claude-code-devcontainer/pull/60).
 
 ## Why use this?
 
