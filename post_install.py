@@ -429,6 +429,10 @@ def setup_claude_dotfiles():
 
 def main():
     """Run all post-install configuration."""
+    # Some engines (e.g., OrbStack, orbstack/orbstack#2759) start docker exec processes,
+    # this one included, with umask 0000, and no shell restores it here, so the files
+    # written below would be world-writable
+    os.umask(0o022)
     print("[post_install] Starting post-install configuration...", file=sys.stderr)
 
     # Ownership first, since the other steps write to the volumes; claude dotfiles
