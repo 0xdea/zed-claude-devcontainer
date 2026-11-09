@@ -108,6 +108,15 @@ def setup_claude_settings():
     # A symlink comes from the stowed claude dotfiles: writing to it would modify
     # the dotfiles checkout, so leave the setting to the dotfiles
     if settings_file.is_symlink():
+        if not settings_file.exists():
+            # Left by remove_stale_claude_dotfiles: replacing it with a file here
+            # would block stowing the claude package once the dotfiles are back
+            print(
+                f"[post_install] {settings_file} links to dotfiles that are gone: "
+                "delete it to get the default settings (bypassPermissions)",
+                file=sys.stderr,
+            )
+            return
         print(
             f"[post_install] {settings_file} comes from dotfiles, skipping "
             "(set permissions.defaultMode there to enable bypassPermissions)",
@@ -347,12 +356,56 @@ def setup_fish_history():
         )
 
 
+def remove_stale_claude_dotfiles():
+    """Remove links into the claude dotfiles package whose targets are gone.
+
+    The ~/.claude volume outlives the image, so they remain when the image is
+    rebuilt without dotfiles, or when a file is removed from the package. Folders
+    left empty are removed too. settings.json is kept (see setup_claude_settings).
+    """
+    claude_dir = Path.home() / ".claude"
+    package = Path.home() / ".dotfiles" / "claude"
+    removed = []
+    for root, _dirs, files in os.walk(claude_dir):
+        for name in files:
+            path = Path(root, name)
+            if path == claude_dir / "settings.json" or not path.is_symlink():
+                continue
+            try:
+                # Stow's links are relative: resolve them lexically, since the
+                # target may be gone, and match only those into the package
+                target = Path(os.path.normpath(Path(root, os.readlink(path))))
+                if package in target.parents and not path.exists():
+                    path.unlink()
+                    removed.append(path)
+            except OSError as e:
+                print(
+                    f"[post_install] Warning: could not remove {path}: {e}",
+                    file=sys.stderr,
+                )
+    # Remove the folders that held them once empty, up to (not including) ~/.claude
+    for path in removed:
+        for parent in path.parents:
+            if parent == claude_dir or claude_dir not in parent.parents:
+                break
+            try:
+                parent.rmdir()  # only succeeds when empty
+            except OSError:
+                break
+    if removed:
+        print(
+            f"[post_install] Removed {len(removed)} stale claude dotfiles link(s)",
+            file=sys.stderr,
+        )
+
+
 def setup_claude_dotfiles():
     """Stow the claude package from ~/.dotfiles into ~/.claude.
 
     Done here rather than in the Dockerfile because ~/.claude is a volume
     mounted at runtime, which would hide anything stowed at build time.
     """
+    remove_stale_claude_dotfiles()
     dotfiles = Path.home() / ".dotfiles"
     if not (dotfiles / "claude").is_dir():
         print("[post_install] No claude dotfiles package, skipping", file=sys.stderr)

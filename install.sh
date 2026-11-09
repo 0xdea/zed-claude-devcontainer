@@ -368,7 +368,8 @@ devcontainer_up() {
 }
 
 # The template reads DEVC_DOTFILES_REPO from the host when it builds the image, so say
-# when it's unset, since an image built then has no dotfiles
+# when it's unset, since an image built then has no dotfiles (only in the commands that
+# build: devc . and devc rebuild)
 note_dotfiles() {
   local devcontainer_json="$1/.devcontainer/devcontainer.json"
   if [[ -z "${DEVC_DOTFILES_REPO:-}" ]] &&
@@ -386,7 +387,6 @@ cmd_up() {
   check_no_sys_admin "$workspace_folder"
   strip_git_mounts_if_not_repo \
     "$workspace_folder/.devcontainer/devcontainer.json" "$workspace_folder"
-  note_dotfiles "$workspace_folder"
   log_info "Starting devcontainer in $workspace_folder..."
 
   devcontainer_up --workspace-folder "$workspace_folder"
@@ -844,6 +844,7 @@ cmd_update() {
 cmd_dot() {
   # Install template and start container in one command
   cmd_template "."
+  note_dotfiles "."
   cmd_up "."
 }
 

@@ -391,7 +391,7 @@ and stows it into `~`. Since the template reads it from the host, it survives `d
 effect at the next `devc rebuild`. Without it, fish, Neovim, and tmux run with their defaults, plus
 `devcontainer.fish` and the tmux config below.
 
-- The variable must be set in the shell that runs `devc`: an image built without it has no dotfiles. `devc up` and
+- The variable must be set in the shell that runs `devc`: an image built without it has no dotfiles. `devc .` and
   `devc rebuild` say so when it isn't.
 - The repository must be cloneable over HTTPS without credentials, since the build has no SSH keys. Don't put a
   token in the URL: build arguments are visible in the image's history, and the URL in the clone's git config.
@@ -402,7 +402,9 @@ effect at the next `devc rebuild`. Without it, fish, Neovim, and tmux run with t
 - An optional `claude` package is stowed into the `~/.claude` volume when the container is created. If it includes
   `settings.json`, enable `bypassPermissions` there yourself (`"permissions": {"defaultMode": "bypassPermissions"}`),
   and choose the update channel (`"autoUpdatesChannel": "stable"`, or Claude Code's default, `latest`).
-  A `settings.json` already in the volume blocks stowing the package; delete it once.
+  A `settings.json` already in the volume blocks stowing the package; delete it once. Links to files that are gone,
+  such as after a rebuild without dotfiles, are removed when the container is created, except `settings.json`: delete
+  that one yourself to get the default settings.
 - A plain `devc rebuild` reuses the cached clone, so new commits in your dotfiles repo don't reach the image;
   `devc rebuild --no-cache` picks them up. To apply them to the running container right away, pull inside it. This
   lasts until the container is recreated. The stowed files are symlinks, so re-run `stow` only for new files:
