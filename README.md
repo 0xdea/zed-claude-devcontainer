@@ -23,7 +23,7 @@ License 2.0).
 > [!TIP]
 > The [upstream README](https://github.com/trailofbits/claude-code-devcontainer#readme) covers what this one doesn't:
 > Colima tuning, token-based (headless) authentication, the full `devc` command list, session sync for `/insights`,
-> file sharing, network isolation, threat model, and container details.
+> file sharing, threat model, and container details.
 
 Changes from upstream:
 
@@ -45,6 +45,8 @@ Changes from upstream:
 - **Dotfiles** (optional): cloned from the host's `DEVC_DOTFILES_REPO` and stowed (see [Dotfiles](#dotfiles)).
 - **IDA Pro** (optional): hcli, and instructions for installing a headless IDA Pro in the container with your own
   license (see [IDA Pro](#ida-pro-optional)).
+- **Network isolation**: `devc net lock|unlock|status` limits outbound access to an allowlist, with rules that code in the
+  container can't change, since it no longer gets `NET_ADMIN` (see [Network isolation](#network-isolation)).
 - **`devc rebuild --no-cache`**: rebuilds without Docker's build cache, still running `devc`'s checks.
 - **Claude Code's stable channel**: installed and updated (automatically and by `devc upgrade`) from the stable
   channel, which lags behind latest. To follow latest, set `"autoUpdatesChannel": "latest"` in
@@ -194,7 +196,7 @@ reason, uv comes from Docker Hub rather than ghcr.io, which gives Renovate no re
 | Updates inside the container (`devc upgrade`, …)    | Kept                   | **Erased**           | **Erased**          |
 | Caches (`~/.cargo/registry`, Neovim plugins, …)     | Kept                   | **Erased**           | **Erased**          |
 | fish `set -U` variables                             | Kept                   | **Erased**           | **Erased**          |
-| Running processes (tmux, servers), iptables rules   | Lost                   | Lost                 | Lost                |
+| Running processes (tmux, servers), `devc net lock`  | Lost                   | Lost                 | Lost                |
 | The image                                           | Kept                   | Rebuilt              | **Deleted**         |
 | Zed's thread list                                   | Kept                   | Older threads hidden | Transcripts deleted |
 
@@ -313,6 +315,46 @@ The costs:
 - **The license is readable** by anything in the container, including the code you review and its dependencies.
 - **Your Hex-Rays account stays out**: never pass `HCLI_API_KEY` or an hcli login to the container, since they give
   access to your whole account, not just to one license.
+
+## Network isolation
+
+Containers have full outbound access. `devc net lock` limits it to an allowlist while the container runs, e.g. when
+reviewing code that may contain malicious dependencies:
+
+```sh
+devc net lock     # allow only the hosts below, and DNS
+devc net status   # locked or unlocked
+devc net unlock   # back to full access
+```
+
+The allowlist:
+
+- **Built in**: Claude Code (`api.anthropic.com`, `claude.ai`, `platform.claude.com`, `downloads.claude.ai`), Zed's
+  agent registry (`cdn.agentclientprotocol.com`, for installing and updating Zed's Claude agent), GitHub (`github.com`,
+  its API, and its download hosts), `static.rust-lang.org`, crates.io, npm, and PyPI, plus Anthropic's and GitHub's
+  published address ranges. They're in `NET_ALLOW_HOSTS` and `NET_ALLOW_NETS` in `install.sh`.
+- **Per project**: `.devcontainer/net-allow`, if present, with one hostname, IPv4 address, or IPv4 CIDR per line and
+  `#` comments. `devc template .` keeps it, and the container sees it read-only, so code in it can't add entries.
+
+How it works: `devc` starts a short-lived helper container from the project's image that joins the dev container's
+network namespace, sets nftables rules there, and exits. The rules stay with the namespace. The dev container has no
+`NET_ADMIN`, so even root in it can't change them, and an egress filter on each interface also stops packets sent with
+raw packet sockets (`NET_RAW`, which tools such as port scanners need, is kept). Hostnames are resolved by another
+helper container on Docker's default network, so the dev container can't redirect them, and DNS is allowed only to
+Docker's resolvers and to any set with `--dns` in `runArgs`. Containers created from an
+older template have `NET_ADMIN` and no `nft`: `devc net` says so, and `devc template .` then `devc rebuild` fixes it.
+
+The trade-offs:
+
+- **It lasts until the container stops.** `devc down`, a restart of the engine or the host, and `devc rebuild` start
+  without it, and so does a container that Zed starts. Check with `devc net status`.
+- **Addresses, not names**: hostnames are resolved when you run `devc net lock`. Hosts behind a CDN change addresses, so
+  run it again when an allowed host stops working, and any other site on an allowed address is reachable too.
+- **Allowed hosts are still exits**: code can send data to GitHub, through your `gh` login, or to the Anthropic API.
+  DNS queries also leave the container.
+- **Only IPv4 is allowed out.** IPv6 is blocked, so tools fall back to IPv4.
+- **Anything else is blocked**, including Zed's downloads from hosts not listed, MCP servers, and package mirrors. Add
+  what you need to `net-allow` and run `devc net lock` again. Replies to forwarded ports still work.
 
 ## Customizing the image
 

@@ -119,6 +119,47 @@ jobs:
             ls /usr/lib/llvm-*/lib/libclang.so >/dev/null
             echo "#include <string>" | clang++ -xc++ -std=c++17 -fsyntax-only -
           '
+      - name: check network isolation
+        run: |
+          set -euxo pipefail
+          ws="$RUNNER_TEMP/ws"
+          # sends an Ethernet frame to 1.1.1.1 with a packet socket (NET_RAW), which skips the IP
+          # stack, and checks the result given: "sent", or "blocked" by the egress filter (ENOBUFS)
+          probe='
+          import errno, socket, sys
+          s = socket.socket(socket.AF_PACKET, socket.SOCK_RAW)
+          s.bind(("eth0", 0))
+          ip = bytes.fromhex("4500001c000100004001" "0000" "0a000001" "01010101")
+          try:
+              s.send(b"\xff" * 6 + b"\x02" * 6 + b"\x08\x00" + ip + bytes(8))
+              result = "sent"
+          except OSError as e:
+              if e.errno != errno.ENOBUFS:
+                  raise
+              result = "blocked"
+          print(result)
+          sys.exit(result != sys.argv[1])
+          '
+          ./install.sh net lock "$ws"
+          ./install.sh net status "$ws" | grep -F "is locked"
+          # shellcheck disable=SC2016 # expanded by the container's bash, not here
+          devcontainer exec --workspace-folder "$ws" bash -c '
+            set -euxo pipefail
+            test "$(curl -s -o /dev/null -w "%{http_code}" -m 10 https://api.anthropic.com/)" != 000
+            git ls-remote https://github.com/0xdea/zed-claude-devcontainer HEAD
+            # set -e ignores commands negated with !, hence the explicit exits
+            ! curl -s -m 10 https://example.com || exit 1
+            ! sudo nft flush ruleset || exit 1
+            sudo python3 -c "$1" blocked
+          ' _ "$probe"
+          ./install.sh net unlock "$ws"
+          ./install.sh net status "$ws" | grep -F "is unlocked"
+          # shellcheck disable=SC2016 # expanded by the container's bash, not here
+          devcontainer exec --workspace-folder "$ws" bash -c '
+            set -euxo pipefail
+            curl -sf -o /dev/null -m 10 https://example.com
+            sudo python3 -c "$1" sent
+          ' _ "$probe"
 
   zizmor:
     name: zizmor

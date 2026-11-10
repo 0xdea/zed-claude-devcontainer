@@ -43,6 +43,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   ipset \
   iptables \
   iproute2 \
+  # nft for `devc net`, which runs it from this image in a helper container
+  nftables \
   && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install git-delta
