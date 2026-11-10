@@ -15,6 +15,10 @@
 A sandboxed dev container for running [Claude Code](https://claude.com/product/claude-code) with `bypassPermissions`
 enabled, from [Zed](https://zed.dev) or a terminal. Designed for security audits and Rust development.
 
+## Article
+
+- https://hnsecurity.it/blog/putting-claude-code-in-a-box-a-sandboxed-dev-container-for-zed/
+
 ## About this fork
 
 Based on [trailofbits/claude-code-devcontainer](https://github.com/trailofbits/claude-code-devcontainer) (Apache
