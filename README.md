@@ -346,9 +346,10 @@ helper container on Docker's default network, not with the dev container's `/etc
 it could change. DNS is allowed only to Docker's resolvers and to any set with `--dns` in `runArgs`.
 
 It needs Linux 5.16 or later in the container engine, which OrbStack, Docker Desktop, and current distributions have,
-and a container with a network of its own: `devc net` refuses `--network=host`, `none`, and `container:…`. Containers
-created from an older template have `NET_ADMIN` and no `nft`: `devc net` says so, and `devc template .` then
-`devc rebuild` fixes it.
+and a container with a network of its own: `devc net` refuses `--network=host`, `none`, and `container:…`. A container
+with the Docker socket mounted (e.g., for Docker-outside-of-Docker) controls the engine, so code in it can undo the
+lock. Containers created from an older template have `NET_ADMIN` and no `nft`: `devc net` says so, and `devc template .`
+then `devc rebuild` fixes it.
 
 The trade-offs:
 

@@ -479,7 +479,8 @@ NET_ALLOW_NETS=(
 # that one shares /etc/hosts and /etc/resolv.conf with the dev container, where root
 # could edit them to get its own addresses allowed. Prints "dns <ip>" for each IPv4
 # nameserver, then "ip <ip>" for each address of the hosts given, or "fail <host>".
-# cmd_net adds the DNS servers set for the dev container itself.
+# cmd_net gives it the DNS servers set for the dev container itself (--dns), so that
+# both use the same servers.
 # shellcheck disable=SC2016 # expanded by the container's bash
 NET_RESOLVE_SCRIPT='
 set -uo pipefail
@@ -533,9 +534,11 @@ lock)
     esac
   done
   devices=()
+  # Only interfaces, which have an ifindex: e.g., bonding_masters is a file
   for dev in /sys/class/net/*; do
-    dev=${dev##*/}
-    [[ "$dev" == lo ]] || devices+=("\"$dev\"")
+    if [[ -e "$dev/ifindex" && "${dev##*/}" != lo ]]; then
+      devices+=("\"${dev##*/}\"")
+    fi
   done
   gateway=$(ip -4 route show default | awk '\''{ print $3; exit }'\'')
   device_list=$(IFS=,; echo "${devices[*]}")
@@ -589,7 +592,7 @@ esac
 # the rules, comma-separated.
 NET_BYPASS_JQ="$CAPABILITY_JQ"'
   [.HostConfig.CapAdd[]? | strings | cap_name
-    | select(. == "NET_ADMIN" or . == "SYS_ADMIN" or . == "ALL")]
+    | select(. == "NET_ADMIN" or grants_sys_admin)]
   + (if .HostConfig.Privileged == true then ["privileged mode"] else [] end)
   | join(", ")'
 
@@ -613,7 +616,7 @@ read_net_allow() {
     elif [[ "$line" =~ ^[0-9./]+$ ]]; then
       log_error "$file:$lineno: not an IPv4 address or CIDR: $line"
       return 1
-    elif [[ "$line" =~ ^[A-Za-z0-9._-]+$ ]]; then
+    elif [[ "$line" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
       echo "host ${line%.}"
     else
       log_error "$file:$lineno: not a hostname, IPv4 address, or IPv4 CIDR: $line"
@@ -682,9 +685,18 @@ cmd_net() {
       done <<<"$parsed"
     fi
 
+    # DNS servers set for the container (e.g., --dns in runArgs). They come from
+    # Docker, so code in the container can't change them.
+    local dns_args=() dns_server
+    while read -r dns_server; do
+      if [[ -n "$dns_server" ]]; then
+        dns_args+=(--dns "$dns_server")
+      fi
+    done < <(jq -r '.HostConfig.Dns[]?' <<<"$inspect")
+
     local resolved
     resolved=$(docker run --rm -i --pull never --log-driver none --cap-drop ALL \
-      --user 65534:65534 --entrypoint bash "$image" -s -- "${hosts[@]}" \
+      ${dns_args[@]+"${dns_args[@]}"} --user 65534:65534 --entrypoint bash "$image" -s -- "${hosts[@]}" \
       <<<"$NET_RESOLVE_SCRIPT") || {
       log_error "Resolving the allowed hosts failed"
       exit 1
@@ -697,16 +709,6 @@ cmd_net() {
       esac
     done <<<"$resolved"
     entries+=("${nets[@]}")
-
-    # DNS servers set for the container (e.g., --dns in runArgs), which the fresh
-    # container doesn't have. They come from Docker, so code in the container can't
-    # change them.
-    local dns_server
-    while read -r dns_server; do
-      if [[ -n "$dns_server" ]]; then
-        entries+=("dns:$dns_server")
-      fi
-    done < <(jq -r '.HostConfig.Dns[]? | select(test("^[0-9]+(\\.[0-9]+){3}$"))' <<<"$inspect")
   fi
 
   # stdout carries status's result; nft's errors go to stderr
