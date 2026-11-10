@@ -335,14 +335,20 @@ The allowlist:
   published address ranges. They're in `NET_ALLOW_HOSTS` and `NET_ALLOW_NETS` in `install.sh`.
 - **Per project**: `.devcontainer/net-allow`, if present, with one hostname, IPv4 address, or IPv4 CIDR per line and
   `#` comments. `devc template .` keeps it, and the container sees it read-only, so code in it can't add entries.
+  But a repository can ship its own `.devcontainer/net-allow`: check it before locking one you don't trust.
+  `devc net lock` lists the entries it adds from the file.
 
 How it works: `devc` starts a short-lived helper container from the project's image that joins the dev container's
 network namespace, sets nftables rules there, and exits. The rules stay with the namespace. The dev container has no
 `NET_ADMIN`, so even root in it can't change them, and an egress filter on each interface also stops packets sent with
 raw packet sockets (`NET_RAW`, which tools such as port scanners need, is kept). Hostnames are resolved by another
-helper container on Docker's default network, so the dev container can't redirect them, and DNS is allowed only to
-Docker's resolvers and to any set with `--dns` in `runArgs`. Containers created from an
-older template have `NET_ADMIN` and no `nft`: `devc net` says so, and `devc template .` then `devc rebuild` fixes it.
+helper container on Docker's default network, not with the dev container's `/etc/hosts` and resolver, which code in
+it could change. DNS is allowed only to Docker's resolvers and to any set with `--dns` in `runArgs`.
+
+It needs Linux 5.16 or later in the container engine, which OrbStack, Docker Desktop, and current distributions have,
+and a container with a network of its own: `devc net` refuses `--network=host`, `none`, and `container:…`. Containers
+created from an older template have `NET_ADMIN` and no `nft`: `devc net` says so, and `devc template .` then
+`devc rebuild` fixes it.
 
 The trade-offs:
 
@@ -354,7 +360,12 @@ The trade-offs:
   DNS queries also leave the container.
 - **Only IPv4 is allowed out.** IPv6 is blocked, so tools fall back to IPv4.
 - **Anything else is blocked**, including Zed's downloads from hosts not listed, MCP servers, and package mirrors. Add
-  what you need to `net-allow` and run `devc net lock` again. Replies to forwarded ports still work.
+  what you need to `net-allow` and run `devc net lock` again. Replies to forwarded ports still work when connections
+  come through the engine's gateway, as with OrbStack and Docker Desktop, but not, e.g., on Linux with Docker's
+  userland proxy turned off.
+- **Lock before running untrusted code.** While unlocked, code with `NET_RAW` can pose as the gateway to the helper
+  that resolves the hostnames, on Docker's default network, and so get its own addresses allowed.
+- **Interfaces added later aren't filtered**, e.g. with `docker network connect`: run `devc net lock` again.
 
 ## Customizing the image
 

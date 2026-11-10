@@ -101,9 +101,9 @@ check_jq() {
 
 # Docker accepts capability names in any case, with or without the CAP_ prefix,
 # and ALL and privileged mode include SYS_ADMIN.
-GRANTS_SYS_ADMIN_JQ='
-  def grants_sys_admin:
-    ascii_upcase | ltrimstr("CAP_") | (. == "SYS_ADMIN" or . == "ALL");'
+CAPABILITY_JQ='
+  def cap_name: ascii_upcase | ltrimstr("CAP_");
+  def grants_sys_admin: cap_name | (. == "SYS_ADMIN" or . == "ALL");'
 
 # Reads the configuration through the devcontainer CLI, which finds and parses it
 # (JSONC included) like `devcontainer up` does, and resolves the features it lists
@@ -124,7 +124,7 @@ check_no_sys_admin() {
     log_warn "Could not resolve the features (offline, or a feature can't be found):"
     log_warn "their privileges are only checked once the container has started."
   fi
-  if ! found=$(jq -r "$GRANTS_SYS_ADMIN_JQ"'
+  if ! found=$(jq -r "$CAPABILITY_JQ"'
     [
       (.configuration | objects | (
         (select(.privileged == true) | "\"privileged\": true"),
@@ -341,7 +341,7 @@ devcontainer_up() {
   fi
 
   if ! host_config=$(docker inspect --format '{{json .HostConfig}}' "$container_id") ||
-    ! found=$(jq -r "$GRANTS_SYS_ADMIN_JQ"'
+    ! found=$(jq -r "$CAPABILITY_JQ"'
       [
         (select(.Privileged == true) | "privileged mode"),
         (.CapAdd[]? | strings | select(grants_sys_admin) | "capability \(.)")
@@ -538,6 +538,7 @@ lock)
     [[ "$dev" == lo ]] || devices+=("\"$dev\"")
   done
   gateway=$(ip -4 route show default | awk '\''{ print $3; exit }'\'')
+  device_list=$(IFS=,; echo "${devices[*]}")
   sets="$(set_def dns "${dns[@]}")
 $(set_def allowed "${nets[@]}")"
   allow="    ip daddr @dns udp dport 53 accept
@@ -560,7 +561,7 @@ $(set_def allowed "${nets[@]}")"
       echo "table netdev devc {"
       echo "$sets"
       echo "  chain egress {"
-      echo "    type filter hook egress devices = { $(IFS=,; echo "${devices[*]}") } priority 0; policy drop;"
+      echo "    type filter hook egress devices = { $device_list } priority 0; policy drop;"
       echo "    meta protocol arp accept"
       if [[ -n "$gateway" ]]; then
         echo "    ip daddr $gateway tcp flags & (syn | ack) != syn accept"
@@ -576,7 +577,7 @@ unlock)
   ;;
 status)
   if nft list table inet devc >/dev/null 2>&1; then
-    nft -j list set inet devc allowed | jq "[.nftables[].set.elem? // empty | .[]] | length"
+    echo locked
   else
     echo unlocked
   fi
@@ -584,31 +585,36 @@ status)
 esac
 '
 
-# Prints the container's privileges that let code inside it change the rules.
-net_bypass_privileges() {
-  docker inspect --format '{{json .HostConfig}}' "$1" | jq -r '
-    [(.CapAdd // [])[] | ascii_upcase | ltrimstr("CAP_")
-      | select(. == "NET_ADMIN" or . == "SYS_ADMIN" or . == "ALL")]
-    + (if .Privileged then ["privileged mode"] else [] end)
-    | join(", ")'
-}
+# From `docker inspect` of the container: its privileges that let code in it change
+# the rules, comma-separated.
+NET_BYPASS_JQ="$CAPABILITY_JQ"'
+  [.HostConfig.CapAdd[]? | strings | cap_name
+    | select(. == "NET_ADMIN" or . == "SYS_ADMIN" or . == "ALL")]
+  + (if .HostConfig.Privileged == true then ["privileged mode"] else [] end)
+  | join(", ")'
 
 # Reads .devcontainer/net-allow: one hostname, IPv4 address, or IPv4 CIDR per line,
-# with # comments. Prints "host <name>" or "net <address>" lines.
+# with # comments. Prints "host <name>" or "net <address>" lines. Addresses must be
+# exact, since nft would look up anything else as a hostname, with the dev container's
+# /etc/hosts; hostnames that don't resolve get a warning.
 read_net_allow() {
   local file="$1" line lineno=0
-  local ipv4='^[0-9]{1,3}(\.[0-9]{1,3}){3}(/[0-9]{1,2})?$'
-  local hostname='^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*$'
+  local octet='(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])'
+  local ipv4="^$octet(\\.$octet){3}(/(3[0-2]|[12]?[0-9]))?\$"
   while IFS= read -r line || [[ -n "$line" ]]; do
     lineno=$((lineno + 1))
     line="${line%%#*}"
-    line="${line//[[:space:]]/}"
+    line="${line#"${line%%[![:space:]]*}"}"
+    line="${line%"${line##*[![:space:]]}"}"
     if [[ -z "$line" ]]; then
       continue
     elif [[ "$line" =~ $ipv4 ]]; then
       echo "net $line"
-    elif [[ "$line" =~ $hostname ]]; then
-      echo "host $line"
+    elif [[ "$line" =~ ^[0-9./]+$ ]]; then
+      log_error "$file:$lineno: not an IPv4 address or CIDR: $line"
+      return 1
+    elif [[ "$line" =~ ^[A-Za-z0-9._-]+$ ]]; then
+      echo "host ${line%.}"
     else
       log_error "$file:$lineno: not a hostname, IPv4 address, or IPv4 CIDR: $line"
       return 1
@@ -643,16 +649,22 @@ cmd_net() {
     exit 1
   fi
   local container_id="$container_ids"
-  local image
-  image=$(docker inspect --format '{{.Image}}' "$container_id")
+  local inspect image network_mode privileges
+  inspect=$(docker inspect --format '{{json .}}' "$container_id")
+  image=$(jq -r '.Image' <<<"$inspect")
+  network_mode=$(jq -r '.HostConfig.NetworkMode' <<<"$inspect")
+  privileges=$(jq -r "$NET_BYPASS_JQ" <<<"$inspect")
 
-  local privileges
-  privileges=$(net_bypass_privileges "$container_id")
-  if [[ -n "$privileges" && "$action" != unlock ]]; then
-    log_warn "The container has $privileges, so code in it can change or remove the rules. Recreate it with the current template: devc template ., then devc rebuild."
-  fi
+  # The rules go into the container's network namespace, which with these modes is
+  # the host's, another container's, or has no interfaces to filter
+  case "$network_mode" in
+  host | none | container:*)
+    log_error "The container uses --network=$network_mode: devc net needs a network of its own."
+    exit 1
+    ;;
+  esac
 
-  local entries=()
+  local entries=() file_entries=""
   if [[ "$action" == lock ]]; then
     local hosts=("${NET_ALLOW_HOSTS[@]}") nets=("${NET_ALLOW_NETS[@]}")
     local allow_file="$workspace_folder/.devcontainer/net-allow" kind value
@@ -663,7 +675,10 @@ cmd_net() {
         case "$kind" in
         host) hosts+=("$value") ;;
         net) nets+=("$value") ;;
+        *) continue ;;
         esac
+        # Listed after locking, since a repository can ship its own net-allow
+        file_entries+="${file_entries:+, }$value"
       done <<<"$parsed"
     fi
 
@@ -691,27 +706,34 @@ cmd_net() {
       if [[ -n "$dns_server" ]]; then
         entries+=("dns:$dns_server")
       fi
-    done < <(docker inspect --format '{{json .HostConfig.Dns}}' "$container_id" |
-      jq -r '.[]? | select(test("^[0-9]+(\\.[0-9]+){3}$"))')
+    done < <(jq -r '.HostConfig.Dns[]? | select(test("^[0-9]+(\\.[0-9]+){3}$"))' <<<"$inspect")
   fi
 
+  # stdout carries status's result; nft's errors go to stderr
   local output status=0
   output=$(docker run --rm -i --pull never --log-driver none --cap-drop ALL \
     --cap-add NET_ADMIN --network "container:$container_id" --user root \
     --entrypoint bash "$image" -s -- "$action" ${entries[@]+"${entries[@]}"} \
-    <<<"$NET_APPLY_SCRIPT" 2>&1) || status=$?
+    <<<"$NET_APPLY_SCRIPT") || status=$?
   if [[ $status -eq 3 ]]; then
     log_error "The container's image has no nft. Rebuild it with the current template: devc template ., then devc rebuild."
     exit 1
   elif [[ $status -ne 0 ]]; then
-    log_error "Changing the rules failed:"
-    echo "$output" >&2
+    log_error "Changing the rules failed (see nft's error above), so nothing changed."
     exit 1
   fi
 
+  local bypass_warning="code in the container can undo it, since it has $privileges. Recreate it with the current template: devc template ., then devc rebuild."
   case "$action" in
   lock)
-    log_success "Network locked: only the allowed hosts and DNS are reachable."
+    if [[ -n "$privileges" ]]; then
+      log_warn "Network locked, but $bypass_warning"
+    else
+      log_success "Network locked: only the allowed hosts and DNS are reachable."
+    fi
+    if [[ -n "$file_entries" ]]; then
+      log_info "Also allowed, from .devcontainer/net-allow: $file_entries"
+    fi
     log_info "It lasts until the container stops; run devc net lock again to refresh addresses."
     ;;
   unlock)
@@ -721,7 +743,10 @@ cmd_net() {
     if [[ "$output" == unlocked ]]; then
       log_info "Network is unlocked: outbound access is unrestricted."
     else
-      log_info "Network is locked: $output allowed address ranges."
+      log_info "Network is locked: only the allowed hosts and DNS are reachable."
+      if [[ -n "$privileges" ]]; then
+        log_warn "But $bypass_warning"
+      fi
     fi
     ;;
   esac
