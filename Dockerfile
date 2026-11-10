@@ -38,11 +38,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   stow \
   unzip \
   vim \
-  # Network tools (for security testing)
+  # Network tools (for security testing). The container has no NET_ADMIN, so firewall
+  # tools only work in `devc net`'s helper container, which runs nft from this image
   dnsutils \
-  ipset \
-  iptables \
   iproute2 \
+  nftables \
   && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install git-delta

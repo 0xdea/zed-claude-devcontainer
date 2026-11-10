@@ -23,7 +23,7 @@ License 2.0).
 > [!TIP]
 > The [upstream README](https://github.com/trailofbits/claude-code-devcontainer#readme) covers what this one doesn't:
 > Colima tuning, token-based (headless) authentication, the full `devc` command list, session sync for `/insights`,
-> file sharing, network isolation, threat model, and container details.
+> file sharing, threat model, and container details.
 
 Changes from upstream:
 
@@ -45,6 +45,9 @@ Changes from upstream:
 - **Dotfiles** (optional): cloned from the host's `DEVC_DOTFILES_REPO` and stowed (see [Dotfiles](#dotfiles)).
 - **IDA Pro** (optional): hcli, and instructions for installing a headless IDA Pro in the container with your own
   license (see [IDA Pro](#ida-pro-optional)).
+- **Network isolation**: `devc net lock|unlock|status` limits outbound access to an allowlist, with rules that code in
+  the container can't change or get around, since it no longer gets `NET_ADMIN` or `NET_RAW` (see
+  [Network isolation](#network-isolation) and [Raw sockets](#raw-sockets)).
 - **`devc rebuild --no-cache`**: rebuilds without Docker's build cache, still running `devc`'s checks.
 - **Claude Code's stable channel**: installed and updated (automatically and by `devc upgrade`) from the stable
   channel, which lags behind latest. To follow latest, set `"autoUpdatesChannel": "latest"` in
@@ -154,7 +157,7 @@ Run these on the host, in the project folder. Zed never rebuilds the container b
 
 - `devc update` updates `devc` and the template in `~/.claude-devcontainer`; projects aren't touched.
 - `devc template .` replaces the project's `.devcontainer/` after asking. It keeps only mounts added with
-  `devc mount`, and removes the `.git` mounts again in a non-git workspace.
+  `devc mount` and the [raw sockets](#raw-sockets) choice, and removes the `.git` mounts again in a non-git workspace.
 - `devc rebuild` rebuilds the image and recreates the container. Docker reuses cached steps that haven't changed, and
   its cache is shared across projects, so steps that install the latest version of a tool only rerun with
   `--no-cache`, which is slow. Versions pinned in the repository change only through Renovate (see
@@ -194,7 +197,7 @@ reason, uv comes from Docker Hub rather than ghcr.io, which gives Renovate no re
 | Updates inside the container (`devc upgrade`, …)    | Kept                   | **Erased**           | **Erased**          |
 | Caches (`~/.cargo/registry`, Neovim plugins, …)     | Kept                   | **Erased**           | **Erased**          |
 | fish `set -U` variables                             | Kept                   | **Erased**           | **Erased**          |
-| Running processes (tmux, servers), iptables rules   | Lost                   | Lost                 | Lost                |
+| Running processes (tmux, servers), `devc net lock`  | Lost                   | Lost                 | Lost                |
 | The image                                           | Kept                   | Rebuilt              | **Deleted**         |
 | Zed's thread list                                   | Kept                   | Older threads hidden | Transcripts deleted |
 
@@ -313,6 +316,67 @@ The costs:
 - **The license is readable** by anything in the container, including the code you review and its dependencies.
 - **Your Hex-Rays account stays out**: never pass `HCLI_API_KEY` or an hcli login to the container, since they give
   access to your whole account, not just to one license.
+
+## Network isolation
+
+Containers have full outbound access. `devc net lock` limits it to an allowlist while the container runs, e.g. when
+reviewing code that may contain malicious dependencies:
+
+```sh
+devc net lock     # allow only the hosts below, and DNS
+devc net status   # locked or unlocked
+devc net unlock   # back to full access
+```
+
+The allowlist:
+
+- **Built in**: Claude Code (`api.anthropic.com`, `claude.ai`, `platform.claude.com`, `downloads.claude.ai`), Zed's
+  agent registry (`cdn.agentclientprotocol.com`, for installing and updating Zed's Claude agent), GitHub (`github.com`,
+  its API, and its download hosts), `static.rust-lang.org`, crates.io, npm, and PyPI, plus Anthropic's and GitHub's
+  published address ranges. They're in `NET_ALLOW_HOSTS` and `NET_ALLOW_NETS` in `install.sh`.
+- **Per project**: `.devcontainer/net-allow`, if present, with one hostname, IPv4 address, or IPv4 CIDR per line and `#`
+  comments. `devc template .` keeps it, and the template mounts `.devcontainer` read-only, so code in the container
+  can't add entries (a symlinked `net-allow` or `.devcontainer` is refused, since it could point into the workspace).
+  Lock only a project whose `.devcontainer` you trust: a repository can ship its own `net-allow`, Dockerfile, or
+  `devcontainer.json`. `devc net lock` lists the file's entries.
+
+How it works: `devc` starts a short-lived helper container from the project's image that joins the dev container's
+network namespace, sets nftables rules there, and exits. The rules stay with the namespace. The dev container has no
+`NET_ADMIN`, so even root in it can't change them, and no `NET_RAW`, so every packet it sends goes through them (see
+[Raw sockets](#raw-sockets)). Hostnames are resolved by another helper container on Docker's default network, not with
+the dev container's `/etc/hosts` and resolver, which code in it could change. DNS is allowed only to Docker's resolvers
+and to any set with `--dns` in `runArgs`.
+
+It needs a container with a network of its own: `devc net` refuses `--network=host`, `none`, and `container:…`. A
+container with the Docker socket mounted (e.g., for Docker-outside-of-Docker) controls the engine, so code in it can
+undo the lock. Containers created from an older template have `NET_ADMIN`, `NET_RAW`, and no `nft`: `devc net` says
+so, and `devc template .` then `devc rebuild` fixes it.
+
+The trade-offs:
+
+- **It lasts until the container stops.** `devc down`, a restart of the engine or the host, and `devc rebuild` start
+  without it, and so does a container that Zed starts. Check with `devc net status`.
+- **Addresses, not names**: hostnames are resolved when you run `devc net lock`. Hosts behind a CDN change addresses, so
+  run it again when an allowed host stops working, and any other site on an allowed address is reachable too.
+- **Allowed hosts are still exits**: code can send data to GitHub, through your `gh` login, or to the Anthropic API.
+  DNS queries also leave the container.
+- **Only IPv4 is allowed out.** IPv6 is blocked, so tools fall back to IPv4.
+- **Anything else is blocked**, including Zed's downloads from hosts not listed, MCP servers, and package mirrors. Add
+  what you need to `net-allow` and run `devc net lock` again. So are connections opened before locking, and answers to
+  connections from outside the container, such as ports published with `-p`.
+- **Keep untrusted containers off Docker's default network.** The helper that resolves the hostnames runs there, and
+  any container on it with `NET_RAW` (which Docker grants unless dropped) can pose as its gateway and get its own
+  addresses allowed.
+
+### Raw sockets
+
+Containers don't get `NET_RAW`, so tools that build their own packets (`tcpdump`, `nmap -sS`, `arping`, crates such as
+pnet with its layer 2 and layer 3 sockets) fail with "Operation not permitted". `ping` still works. To give a project
+raw sockets, change `"--cap-drop=NET_RAW"` to `"--cap-add=NET_RAW"` in `runArgs` in its
+`.devcontainer/devcontainer.json`, then run `devc rebuild`. `devc template .` keeps that choice.
+
+With `NET_RAW`, `devc net lock` can't hold, and says so: raw sockets (`AF_PACKET`, `AF_XDP`) send through kernel paths
+that skip its rules. Don't run untrusted code in such a project.
 
 ## Customizing the image
 

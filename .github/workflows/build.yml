@@ -92,6 +92,9 @@ jobs:
             # set -e ignores commands negated with !, hence the explicit exits
             ! touch .git/config || exit 1
             ! touch .devcontainer/x || exit 1
+            # no NET_RAW, even for root: packet sockets (AF_PACKET, AF_XDP=44) would skip devc net
+            ! sudo python3 -c "import socket; socket.socket(socket.AF_PACKET, socket.SOCK_RAW)" || exit 1
+            ! sudo python3 -c "import socket; socket.socket(44, socket.SOCK_RAW)" || exit 1
             command -v fdfind
             fish -c "type -q fd"
             cargo audit --version
@@ -119,6 +122,85 @@ jobs:
             ls /usr/lib/llvm-*/lib/libclang.so >/dev/null
             echo "#include <string>" | clang++ -xc++ -std=c++17 -fsyntax-only -
           '
+      - name: check network isolation
+        run: |
+          set -euxo pipefail
+          ws="$RUNNER_TEMP/ws"
+          # twice: locking again replaces the rules (to refresh addresses)
+          ./install.sh net lock "$ws"
+          ./install.sh net lock "$ws"
+          ./install.sh net status "$ws" | grep -F "is locked"
+          # shellcheck disable=SC2016 # expanded by the container's bash, not here
+          devcontainer exec --workspace-folder "$ws" bash -c '
+            set -euxo pipefail
+            test "$(curl -s -o /dev/null -w "%{http_code}" -m 10 https://api.anthropic.com/)" != 000
+            git ls-remote https://github.com/0xdea/zed-claude-devcontainer HEAD
+            # set -e ignores commands negated with !, hence the explicit exits
+            ! curl -s -m 10 https://example.com || exit 1
+            # DNS only to the resolvers Docker set
+            ! dig +time=2 +tries=1 @9.9.9.9 example.com || exit 1
+            ! sudo nft flush ruleset || exit 1
+          '
+          ./install.sh net unlock "$ws"
+          ./install.sh net status "$ws" | grep -F "is unlocked"
+          devcontainer exec --workspace-folder "$ws" curl -sf -o /dev/null -m 10 https://example.com
+      - name: check network isolation edge cases
+        run: |
+          set -euxo pipefail
+          ws="$RUNNER_TEMP/ws"
+          allow="$ws/.devcontainer/net-allow"
+          in_ws() { devcontainer exec --workspace-folder "$ws" bash -c "$1"; }
+
+          # net-allow: its entries are allowed and listed, other hosts stay blocked
+          printf "# extra hosts\nexample.com\n" >"$allow"
+          ./install.sh net lock "$ws" | grep -F "from .devcontainer/net-allow: example.com"
+          in_ws "curl -sf -o /dev/null -m 10 https://example.com"
+          # set -e ignores commands negated with !, hence the explicit exits
+          ! in_ws "curl -s -m 10 https://wikipedia.org" || exit 1
+          # a bad line fails with its line number
+          printf "example.com\nexample.com pypi.org\n" >"$allow"
+          ! ./install.sh net lock "$ws" 2>"$RUNNER_TEMP/err" || exit 1
+          grep -F "net-allow:2:" "$RUNNER_TEMP/err"
+          rm "$allow"
+          ./install.sh net unlock "$ws"
+
+          # devc net finds containers by this label, so throwaway containers from the image
+          # stand in for devcontainers created with other settings
+          image=$(docker inspect --format "{{.Image}}" \
+            "$(docker ps -q --filter "label=devcontainer.local_folder=$ws")")
+          throwaway() {
+            local name="$1"
+            shift
+            mkdir -p "$RUNNER_TEMP/$name"
+            docker run -d --rm --name "$name" --label "devcontainer.local_folder=$RUNNER_TEMP/$name" \
+              --entrypoint sleep "$@" "$image" infinity
+          }
+
+          # host networking is refused, leaving the runner online
+          throwaway hostnet --network host
+          ! ./install.sh net lock "$RUNNER_TEMP/hostnet" || exit 1
+          curl -sf -o /dev/null -m 10 https://example.com
+
+          # with NET_RAW (Docker's default), locking warns that raw sockets get around it
+          throwaway raw
+          ./install.sh net lock "$RUNNER_TEMP/raw" | grep -F "raw sockets"
+
+          # with NET_ADMIN, locking warns that the container can undo it
+          throwaway netadmin --cap-add NET_ADMIN
+          ./install.sh net lock "$RUNNER_TEMP/netadmin" | grep -F "can undo it"
+
+          # DNS servers set with --dns stay reachable, others are blocked
+          throwaway dns --dns 1.1.1.1
+          ./install.sh net lock "$RUNNER_TEMP/dns"
+          docker exec dns getent hosts example.com
+          ! docker exec dns dig +time=2 +tries=1 @9.9.9.9 example.com || exit 1
+
+          docker rm -f hostnet raw netadmin dns
+
+          # devc template keeps the raw sockets opt-in
+          sed -i "s/--cap-drop=NET_RAW/--cap-add=NET_RAW/" "$ws/.devcontainer/devcontainer.json"
+          echo y | ./install.sh template "$ws"
+          jq -e ".runArgs | index(\"--cap-add=NET_RAW\")" "$ws/.devcontainer/devcontainer.json"
 
   zizmor:
     name: zizmor

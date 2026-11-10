@@ -11,10 +11,7 @@
   "features": {
     "ghcr.io/devcontainers/features/github-cli:1": {}
   },
-  "runArgs": [
-    "--cap-add=NET_ADMIN",
-    "--cap-add=NET_RAW"
-  ],
+  "runArgs": ["--cap-drop=NET_RAW"],
   "init": true,
   "updateRemoteUserUID": true,
   "remoteUser": "vscode",

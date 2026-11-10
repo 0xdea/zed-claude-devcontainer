@@ -31,6 +31,7 @@ Commands:
     up                                Start the devcontainer in current directory
     rebuild [--no-cache]              Rebuild the devcontainer (preserves auth volumes)
     down                              Stop the devcontainer
+    net lock|unlock|status [dir]      Limit outbound access to an allowlist, or lift it
     shell                             Open a shell in the running container
     self-install                      Install 'devc' command to ~/.local/bin
     update                            Update devc to the latest version
@@ -48,6 +49,7 @@ Examples:
     devc up                           # Start container in current directory
     devc rebuild                      # Clean rebuild
     devc rebuild --no-cache           # Rebuild without Docker's cache (refreshes tools)
+    devc net lock                     # Allow only Claude, GitHub, registries, and net-allow
     devc shell                        # Open interactive shell
     devc self-install                 # Install devc to PATH
     devc update                       # Update to latest version
@@ -99,9 +101,9 @@ check_jq() {
 
 # Docker accepts capability names in any case, with or without the CAP_ prefix,
 # and ALL and privileged mode include SYS_ADMIN.
-GRANTS_SYS_ADMIN_JQ='
-  def grants_sys_admin:
-    ascii_upcase | ltrimstr("CAP_") | (. == "SYS_ADMIN" or . == "ALL");'
+CAPABILITY_JQ='
+  def cap_name: ascii_upcase | ltrimstr("CAP_");
+  def grants_sys_admin: cap_name | (. == "SYS_ADMIN" or . == "ALL");'
 
 # Reads the configuration through the devcontainer CLI, which finds and parses it
 # (JSONC included) like `devcontainer up` does, and resolves the features it lists
@@ -122,7 +124,7 @@ check_no_sys_admin() {
     log_warn "Could not resolve the features (offline, or a feature can't be found):"
     log_warn "their privileges are only checked once the container has started."
   fi
-  if ! found=$(jq -r "$GRANTS_SYS_ADMIN_JQ"'
+  if ! found=$(jq -r "$CAPABILITY_JQ"'
     [
       (.configuration | objects | (
         (select(.privileged == true) | "\"privileged\": true"),
@@ -279,7 +281,7 @@ cmd_template() {
 
   local devcontainer_dir="$target_dir/.devcontainer"
   local devcontainer_json="$devcontainer_dir/devcontainer.json"
-  local preserved_mounts=""
+  local preserved_mounts="" keep_net_raw=false
 
   if [[ -d "$devcontainer_dir" ]]; then
     log_warn "Devcontainer already exists at $devcontainer_dir"
@@ -294,6 +296,12 @@ cmd_template() {
     preserved_mounts=$(extract_mounts_to_file "$devcontainer_json")
     if [[ -n "$preserved_mounts" ]]; then
       log_info "Preserving custom mounts..."
+    fi
+    # The raw sockets opt-in (see the README's "Raw sockets"). Older templates had NET_RAW
+    # by default, always with NET_ADMIN, which isn't an opt-in
+    if jq -e '(.runArgs // []) | index("--cap-add=NET_RAW") and (index("--cap-add=NET_ADMIN") | not)' \
+      "$devcontainer_json" >/dev/null 2>&1; then
+      keep_net_raw=true
     fi
   fi
 
@@ -311,6 +319,14 @@ cmd_template() {
     merge_mounts_from_file "$devcontainer_json" "$preserved_mounts"
     rm -f "$preserved_mounts"
     log_info "Custom mounts restored"
+  fi
+
+  if [[ "$keep_net_raw" == true ]]; then
+    local updated
+    updated=$(jq '.runArgs |= map(if . == "--cap-drop=NET_RAW" then "--cap-add=NET_RAW" else . end)' \
+      "$devcontainer_json")
+    echo "$updated" >"$devcontainer_json"
+    log_info "Kept --cap-add=NET_RAW (raw sockets)"
   fi
 
   strip_git_mounts_if_not_repo "$devcontainer_json" "$target_dir"
@@ -339,7 +355,7 @@ devcontainer_up() {
   fi
 
   if ! host_config=$(docker inspect --format '{{json .HostConfig}}' "$container_id") ||
-    ! found=$(jq -r "$GRANTS_SYS_ADMIN_JQ"'
+    ! found=$(jq -r "$CAPABILITY_JQ"'
       [
         (select(.Privileged == true) | "privileged mode"),
         (.CapAdd[]? | strings | select(grants_sys_admin) | "capability \(.)")
@@ -451,6 +467,297 @@ cmd_down() {
   else
     log_warn "No running devcontainer found for $workspace_folder"
   fi
+}
+
+# Hosts that `devc net lock` always allows: Claude Code (API, sign-in and token refresh,
+# updates), Zed's agent registry (installing and updating Zed's Claude agent, which
+# downloads from GitHub releases), GitHub, and the Rust, npm, and PyPI registries. Anthropic and GitHub also
+# publish their address ranges (NET_ALLOW_NETS), which don't change like resolved
+# addresses: GitHub moves its hosts between addresses in these ranges. GitHub's are the
+# ones its meta API (`gh api meta`) lists for web, api, and git, without the single
+# regional addresses, which resolving the hosts covers.
+NET_ALLOW_HOSTS=(
+  api.anthropic.com claude.ai platform.claude.com downloads.claude.ai
+  cdn.agentclientprotocol.com
+  github.com api.github.com codeload.github.com objects.githubusercontent.com
+  raw.githubusercontent.com release-assets.githubusercontent.com
+  static.rust-lang.org crates.io index.crates.io static.crates.io
+  registry.npmjs.org pypi.org files.pythonhosted.org
+)
+NET_ALLOW_NETS=(
+  160.79.104.0/23 153.61.224.0/22
+  140.82.112.0/20 143.55.64.0/20 185.199.108.0/22 192.30.252.0/22
+)
+
+# Runs in a fresh container on Docker's default network, not in the dev container's:
+# that one shares /etc/hosts and /etc/resolv.conf with the dev container, where root
+# could edit them to get its own addresses allowed. Prints "dns <ip>" for each IPv4
+# nameserver, then "ip <ip>" for each address of the hosts given, or "fail <host>".
+# cmd_net gives it the DNS servers set for the dev container itself (--dns), so that
+# both use the same servers.
+# shellcheck disable=SC2016 # expanded by the container's bash
+NET_RESOLVE_SCRIPT='
+set -uo pipefail
+awk '\''$1 == "nameserver" && $2 ~ /^[0-9.]+$/ { print "dns " $2 }'\'' /etc/resolv.conf
+for host in "$@"; do
+  ips=$(getent ahostsv4 "$host" | awk '\''{ print $1 }'\'' | sort -u)
+  if [[ -z "$ips" ]]; then
+    echo "fail $host"
+  else
+    printf "ip %s\n" $ips
+  fi
+done
+'
+
+# Runs as root with NET_ADMIN in a helper container that shares the dev container's
+# network namespace. Arguments: lock, unlock, or status; for lock, then "dns:<ip>" and
+# "<ip or CIDR>" entries. The rules live in an "inet devc" table, replaced in one
+# transaction. They see every packet because the container has no NET_RAW: raw sockets
+# (AF_PACKET, AF_XDP) send through kernel paths that skip them. They don't accept
+# established connections, so that connections opened before locking stop too.
+# Exits with 100 if the image has no nft (nft uses 1 to 3 itself).
+# shellcheck disable=SC2016 # expanded by the container's bash
+NET_APPLY_SCRIPT='
+set -euo pipefail
+command -v nft >/dev/null || exit 100
+action=$1
+shift
+drop_table="table inet devc
+delete table inet devc"
+set_def() {
+  local name=$1
+  shift
+  echo "  set $name { type ipv4_addr; flags interval; auto-merge;"
+  if [[ $# -gt 0 ]]; then
+    local IFS=,
+    echo "    elements = { $* }"
+  fi
+  echo "  }"
+}
+case "$action" in
+lock)
+  dns=()
+  nets=()
+  for entry in "$@"; do
+    case "$entry" in
+    dns:*) dns+=("${entry#dns:}") ;;
+    *) nets+=("$entry") ;;
+    esac
+  done
+  nft -f - <<EOF
+$drop_table
+table inet devc {
+$(set_def dns "${dns[@]}")
+$(set_def allowed "${nets[@]}")
+  chain output {
+    type filter hook output priority filter; policy drop;
+    oifname "lo" accept
+    ip daddr @dns udp dport 53 accept
+    ip daddr @dns tcp dport 53 accept
+    ip daddr @allowed accept
+    meta l4proto tcp reject with tcp reset
+    reject with icmpx admin-prohibited
+  }
+}
+EOF
+  ;;
+unlock)
+  nft -f - <<<"$drop_table"
+  ;;
+status)
+  if nft list table inet devc >/dev/null 2>&1; then
+    echo locked
+  else
+    echo unlocked
+  fi
+  ;;
+esac
+'
+
+# From `docker inspect` of the container, two lines: its privileges that let code in it
+# change the rules, comma-separated; then "raw" if it has NET_RAW (Docker grants it
+# unless dropped), which lets code get around them.
+NET_BYPASS_JQ="$CAPABILITY_JQ"'
+  ([.HostConfig.CapAdd[]? | strings | cap_name
+    | select(. == "NET_ADMIN" or grants_sys_admin)]
+  + (if .HostConfig.Privileged == true then ["privileged mode"] else [] end)
+  | join(", ")),
+  (if any(.HostConfig.CapAdd[]? | strings | cap_name; . == "NET_RAW")
+      or (any(.HostConfig.CapDrop[]? | strings | cap_name; . == "NET_RAW" or . == "ALL") | not)
+    then "raw" else "" end)'
+
+# Reads .devcontainer/net-allow: one hostname, IPv4 address, or IPv4 CIDR per line,
+# with # comments. Prints "host <name>" or "net <address>" lines. Addresses must be
+# exact, since nft would look up anything else as a hostname, with the dev container's
+# /etc/hosts; hostnames that don't resolve get a warning.
+read_net_allow() {
+  local file="$1" line lineno=0
+  local octet='(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])'
+  local ipv4="^$octet(\\.$octet){3}(/(3[0-2]|[12]?[0-9]))?\$"
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    lineno=$((lineno + 1))
+    line="${line%%#*}"
+    line="${line#"${line%%[![:space:]]*}"}"
+    line="${line%"${line##*[![:space:]]}"}"
+    if [[ -z "$line" ]]; then
+      continue
+    elif [[ "$line" =~ $ipv4 ]]; then
+      echo "net $line"
+    elif [[ "$line" =~ ^[0-9./]+$ ]]; then
+      log_error "$file:$lineno: not an IPv4 address or CIDR: $line"
+      return 1
+    elif [[ "$line" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
+      echo "host ${line%.}"
+    else
+      log_error "$file:$lineno: not a hostname, IPv4 address, or IPv4 CIDR: $line"
+      return 1
+    fi
+  done <"$file"
+}
+
+# Locks or unlocks outbound access for a running devcontainer, or shows its state.
+# See the README's "Network isolation" section.
+cmd_net() {
+  local action="${1:-status}"
+  [[ $# -gt 0 ]] && shift
+  case "$action" in
+  lock | unlock | status) ;;
+  *)
+    log_error "Usage: devc net lock|unlock|status [dir]"
+    exit 1
+    ;;
+  esac
+
+  local workspace_folder
+  workspace_folder="$(get_workspace_folder "${1:-}")"
+  check_jq
+
+  local container_ids
+  container_ids=$(docker ps -q --filter "label=devcontainer.local_folder=$workspace_folder")
+  if [[ -z "$container_ids" ]]; then
+    log_error "No running devcontainer found for $workspace_folder (start it with devc up)"
+    exit 1
+  elif [[ "$container_ids" == *$'\n'* ]]; then
+    log_error "More than one running devcontainer found for $workspace_folder"
+    exit 1
+  fi
+  local container_id="$container_ids"
+  local inspect image network_mode privileges net_raw
+  inspect=$(docker inspect --format '{{json .}}' "$container_id")
+  image=$(jq -r '.Image' <<<"$inspect")
+  network_mode=$(jq -r '.HostConfig.NetworkMode' <<<"$inspect")
+  { read -r privileges; read -r net_raw; } < <(jq -r "$NET_BYPASS_JQ" <<<"$inspect")
+
+  # The rules go into the container's network namespace, which with these modes is
+  # the host's, another container's, or has no interfaces to filter
+  case "$network_mode" in
+  host | none | container:*)
+    log_error "The container uses --network=$network_mode: devc net needs a network of its own."
+    exit 1
+    ;;
+  esac
+
+  local entries=() file_entries=""
+  if [[ "$action" == lock ]]; then
+    local hosts=("${NET_ALLOW_HOSTS[@]}") nets=("${NET_ALLOW_NETS[@]}")
+    local allow_file="$workspace_folder/.devcontainer/net-allow" kind value
+    # A symlink, of the file or of .devcontainer, could point into the workspace, where
+    # code in the container can write
+    if [[ -L "$allow_file" ]] || [[ -L "$workspace_folder/.devcontainer" && -e "$allow_file" ]]; then
+      log_error "$allow_file is a symlink or in a symlinked .devcontainer: make both regular."
+      exit 1
+    elif [[ -f "$allow_file" ]]; then
+      local parsed
+      parsed=$(read_net_allow "$allow_file") || exit 1
+      while read -r kind value; do
+        case "$kind" in
+        host) hosts+=("$value") ;;
+        net) nets+=("$value") ;;
+        *) continue ;;
+        esac
+        # Listed after locking, since a repository can ship its own net-allow
+        file_entries+="${file_entries:+, }$value"
+      done <<<"$parsed"
+    fi
+
+    # DNS servers set for the container (e.g., --dns in runArgs). They come from
+    # Docker, so code in the container can't change them.
+    local dns_args=() dns_server
+    while read -r dns_server; do
+      if [[ -n "$dns_server" ]]; then
+        dns_args+=(--dns "$dns_server")
+      fi
+    done < <(jq -r '.HostConfig.Dns[]?' <<<"$inspect")
+
+    local resolved
+    resolved=$(docker run --rm -i --pull never --log-driver none --cap-drop ALL \
+      ${dns_args[@]+"${dns_args[@]}"} --user 65534:65534 --entrypoint bash "$image" -s -- "${hosts[@]}" \
+      <<<"$NET_RESOLVE_SCRIPT") || {
+      log_error "Resolving the allowed hosts failed"
+      exit 1
+    }
+    while read -r kind value; do
+      case "$kind" in
+      dns) entries+=("dns:$value") ;;
+      ip) entries+=("$value") ;;
+      fail) log_warn "$value doesn't resolve, so it isn't allowed" ;;
+      esac
+    done <<<"$resolved"
+    if [[ "$resolved" != *"dns "* ]]; then
+      log_warn "No IPv4 DNS server found for the container, so name lookups will fail while locked."
+    fi
+    entries+=("${nets[@]}")
+  fi
+
+  # stdout carries status's result; nft's errors go to stderr
+  local output status=0
+  output=$(docker run --rm -i --pull never --log-driver none --cap-drop ALL \
+    --cap-add NET_ADMIN --network "container:$container_id" --user root \
+    --entrypoint bash "$image" -s -- "$action" ${entries[@]+"${entries[@]}"} \
+    <<<"$NET_APPLY_SCRIPT") || status=$?
+  if [[ $status -eq 100 ]]; then
+    log_error "The container's image has no nft. Rebuild it with the current template: devc template ., then devc rebuild."
+    exit 1
+  elif [[ $status -ne 0 ]]; then
+    log_error "Changing the rules failed (see the error above), so nothing changed."
+    exit 1
+  fi
+
+  local bypass_warning=""
+  if [[ -n "$privileges" ]]; then
+    bypass_warning="code in the container can undo it, since it has $privileges. Recreate it with the current template: devc template ., then devc rebuild."
+  elif [[ "$net_raw" == raw ]]; then
+    bypass_warning="code in the container can get around it with raw sockets, since it has NET_RAW (see Raw sockets in the README)."
+  fi
+  case "$action" in
+  lock)
+    if [[ -n "$bypass_warning" ]]; then
+      log_warn "Network locked, but $bypass_warning"
+    else
+      log_success "Network locked: only the allowed hosts and DNS are reachable."
+    fi
+    if [[ -n "$file_entries" ]]; then
+      log_info "Entries from .devcontainer/net-allow: $file_entries"
+    fi
+    log_info "It lasts until the container stops; run devc net lock again to refresh addresses."
+    ;;
+  unlock)
+    log_success "Network unlocked: outbound access is unrestricted."
+    ;;
+  status)
+    if [[ "$output" == unlocked ]]; then
+      log_info "Network is unlocked: outbound access is unrestricted."
+    elif [[ "$output" == locked ]]; then
+      log_info "Network is locked: only the allowed hosts and DNS are reachable."
+      if [[ -n "$bypass_warning" ]]; then
+        log_warn "But $bypass_warning"
+      fi
+    else
+      log_error "Checking the rules gave an unexpected result: $output"
+      exit 1
+    fi
+    ;;
+  esac
 }
 
 cmd_shell() {
@@ -1023,6 +1330,9 @@ main() {
     ;;
   down)
     cmd_down "$@"
+    ;;
+  net)
+    cmd_net "$@"
     ;;
   destroy)
     cmd_destroy "$@"
