@@ -21,8 +21,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   tmux \
   zsh \
   fish \
-  # Build tools
+  # Build tools; pkg-config and the OpenSSL headers for -sys crates such as openssl-sys
   build-essential \
+  libssl-dev \
+  pkg-config \
   # Clang and libclang for bindgen/autocxx
   clang \
   libclang-dev \
@@ -33,16 +35,29 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   libxdo-dev \
   xvfb \
   # Utilities
+  file \
   jq \
   nano \
   stow \
   unzip \
   vim \
+  xxd \
   # Network tools (for security testing). The container has no NET_ADMIN, so firewall
-  # tools only work in `devc net`'s helper container, which runs nft from this image
+  # tools only work in `devc net`'s helper container, which runs nft from this image;
+  # tcpdump needs NET_RAW (see the README's "Raw sockets")
   dnsutils \
+  inetutils-telnet \
   iproute2 \
+  iputils-ping \
+  netcat-openbsd \
   nftables \
+  tcpdump \
+  traceroute \
+  whois \
+  # ping comes with the NET_RAW file capability, which keeps it from starting in containers
+  # without NET_RAW (see devcontainer.json). Without that file capability, it uses the ICMP
+  # sockets that Docker allows
+  && setcap -r /usr/bin/ping \
   && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install git-delta

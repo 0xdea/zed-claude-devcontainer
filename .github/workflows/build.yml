@@ -95,6 +95,11 @@ jobs:
             # no NET_RAW, even for root: packet sockets (AF_PACKET, AF_XDP=44) would skip devc net
             ! sudo python3 -c "import socket; socket.socket(socket.AF_PACKET, socket.SOCK_RAW)" || exit 1
             ! sudo python3 -c "import socket; socket.socket(44, socket.SOCK_RAW)" || exit 1
+            # ping still works, through ICMP sockets
+            ping -c 1 -W 5 127.0.0.1
+            # one name per command -v: with several, it succeeds if any is found
+            for tool in file xxd nc telnet traceroute whois tcpdump; do command -v "$tool"; done
+            pkg-config --exists openssl
             command -v fdfind
             fish -c "type -q fd"
             cargo audit --version
