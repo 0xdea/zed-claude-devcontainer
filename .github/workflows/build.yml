@@ -92,6 +92,9 @@ jobs:
             # set -e ignores commands negated with !, hence the explicit exits
             ! touch .git/config || exit 1
             ! touch .devcontainer/x || exit 1
+            # no NET_RAW, even for root: packet sockets (AF_PACKET, AF_XDP=44) would skip devc net
+            ! sudo python3 -c "import socket; socket.socket(socket.AF_PACKET, socket.SOCK_RAW)" || exit 1
+            ! sudo python3 -c "import socket; socket.socket(44, socket.SOCK_RAW)" || exit 1
             command -v fdfind
             fish -c "type -q fd"
             cargo audit --version
@@ -123,23 +126,6 @@ jobs:
         run: |
           set -euxo pipefail
           ws="$RUNNER_TEMP/ws"
-          # sends an Ethernet frame to 1.1.1.1 with a packet socket (NET_RAW), which skips the IP
-          # stack, and checks the result given: "sent", or "blocked" by the egress filter (ENOBUFS)
-          probe='
-          import errno, socket, sys
-          s = socket.socket(socket.AF_PACKET, socket.SOCK_RAW)
-          s.bind(("eth0", 0))
-          ip = bytes.fromhex("4500001c000100004001" "0000" "0a000001" "01010101")
-          try:
-              s.send(b"\xff" * 6 + b"\x02" * 6 + b"\x08\x00" + ip + bytes(8))
-              result = "sent"
-          except OSError as e:
-              if e.errno != errno.ENOBUFS:
-                  raise
-              result = "blocked"
-          print(result)
-          sys.exit(result != sys.argv[1])
-          '
           # twice: locking again replaces the rules (to refresh addresses)
           ./install.sh net lock "$ws"
           ./install.sh net lock "$ws"
@@ -154,16 +140,10 @@ jobs:
             # DNS only to the resolvers Docker set
             ! dig +time=2 +tries=1 @9.9.9.9 example.com || exit 1
             ! sudo nft flush ruleset || exit 1
-            sudo python3 -c "$1" blocked
-          ' _ "$probe"
+          '
           ./install.sh net unlock "$ws"
           ./install.sh net status "$ws" | grep -F "is unlocked"
-          # shellcheck disable=SC2016 # expanded by the container's bash, not here
-          devcontainer exec --workspace-folder "$ws" bash -c '
-            set -euxo pipefail
-            curl -sf -o /dev/null -m 10 https://example.com
-            sudo python3 -c "$1" sent
-          ' _ "$probe"
+          devcontainer exec --workspace-folder "$ws" curl -sf -o /dev/null -m 10 https://example.com
       - name: check network isolation edge cases
         run: |
           set -euxo pipefail
@@ -201,6 +181,10 @@ jobs:
           ! ./install.sh net lock "$RUNNER_TEMP/hostnet" || exit 1
           curl -sf -o /dev/null -m 10 https://example.com
 
+          # with NET_RAW (Docker's default), locking warns that raw sockets get around it
+          throwaway raw
+          ./install.sh net lock "$RUNNER_TEMP/raw" | grep -F "raw sockets"
+
           # with NET_ADMIN, locking warns that the container can undo it
           throwaway netadmin --cap-add NET_ADMIN
           ./install.sh net lock "$RUNNER_TEMP/netadmin" | grep -F "can undo it"
@@ -211,7 +195,12 @@ jobs:
           docker exec dns getent hosts example.com
           ! docker exec dns dig +time=2 +tries=1 @9.9.9.9 example.com || exit 1
 
-          docker rm -f hostnet netadmin dns
+          docker rm -f hostnet raw netadmin dns
+
+          # devc template keeps the raw sockets opt-in
+          sed -i "s/--cap-drop=NET_RAW/--cap-add=NET_RAW/" "$ws/.devcontainer/devcontainer.json"
+          echo y | ./install.sh template "$ws"
+          jq -e ".runArgs | index(\"--cap-add=NET_RAW\")" "$ws/.devcontainer/devcontainer.json"
 
   zizmor:
     name: zizmor

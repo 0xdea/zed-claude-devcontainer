@@ -281,7 +281,7 @@ cmd_template() {
 
   local devcontainer_dir="$target_dir/.devcontainer"
   local devcontainer_json="$devcontainer_dir/devcontainer.json"
-  local preserved_mounts=""
+  local preserved_mounts="" keep_net_raw=false
 
   if [[ -d "$devcontainer_dir" ]]; then
     log_warn "Devcontainer already exists at $devcontainer_dir"
@@ -296,6 +296,12 @@ cmd_template() {
     preserved_mounts=$(extract_mounts_to_file "$devcontainer_json")
     if [[ -n "$preserved_mounts" ]]; then
       log_info "Preserving custom mounts..."
+    fi
+    # The raw sockets opt-in (see the README's "Raw sockets"). Older templates had NET_RAW
+    # by default, always with NET_ADMIN, which isn't an opt-in
+    if jq -e '(.runArgs // []) | index("--cap-add=NET_RAW") and (index("--cap-add=NET_ADMIN") | not)' \
+      "$devcontainer_json" >/dev/null 2>&1; then
+      keep_net_raw=true
     fi
   fi
 
@@ -313,6 +319,14 @@ cmd_template() {
     merge_mounts_from_file "$devcontainer_json" "$preserved_mounts"
     rm -f "$preserved_mounts"
     log_info "Custom mounts restored"
+  fi
+
+  if [[ "$keep_net_raw" == true ]]; then
+    local updated
+    updated=$(jq '.runArgs |= map(if . == "--cap-drop=NET_RAW" then "--cap-add=NET_RAW" else . end)' \
+      "$devcontainer_json")
+    echo "$updated" >"$devcontainer_json"
+    log_info "Kept --cap-add=NET_RAW (raw sockets)"
   fi
 
   strip_git_mounts_if_not_repo "$devcontainer_json" "$target_dir"
@@ -497,22 +511,18 @@ done
 
 # Runs as root with NET_ADMIN in a helper container that shares the dev container's
 # network namespace. Arguments: lock, unlock, or status; for lock, then "dns:<ip>" and
-# "<ip or CIDR>" entries. Rules live in two "devc" tables, replaced in one transaction:
-# - inet: the stateful filter for everything that goes through the IP stack;
-# - netdev: an egress filter on each interface, which also catches packets sent with
-#   packet sockets (NET_RAW), which skip the IP stack. It can't track connections, so
-#   it lets through non-SYN TCP to the gateway: replies to forwarded ports.
-# Exits with 3 if the image has no nft.
+# "<ip or CIDR>" entries. The rules live in an "inet devc" table, replaced in one
+# transaction. They see every packet because the container has no NET_RAW: raw sockets
+# (AF_PACKET, AF_XDP) send through kernel paths that skip them.
+# Exits with 100 if the image has no nft (nft uses 1 to 3 itself).
 # shellcheck disable=SC2016 # expanded by the container's bash
 NET_APPLY_SCRIPT='
 set -euo pipefail
-command -v nft >/dev/null || exit 3
+command -v nft >/dev/null || exit 100
 action=$1
 shift
-drop_tables="table inet devc
-delete table inet devc
-table netdev devc
-delete table netdev devc"
+drop_table="table inet devc
+delete table inet devc"
 set_def() {
   local name=$1
   shift
@@ -533,50 +543,26 @@ lock)
     *) nets+=("$entry") ;;
     esac
   done
-  devices=()
-  # Only interfaces, which have an ifindex: e.g., bonding_masters is a file
-  for dev in /sys/class/net/*; do
-    if [[ -e "$dev/ifindex" && "${dev##*/}" != lo ]]; then
-      devices+=("\"${dev##*/}\"")
-    fi
-  done
-  gateway=$(ip -4 route show default | awk '\''{ print $3; exit }'\'')
-  device_list=$(IFS=,; echo "${devices[*]}")
-  sets="$(set_def dns "${dns[@]}")
-$(set_def allowed "${nets[@]}")"
-  allow="    ip daddr @dns udp dport 53 accept
+  nft -f - <<EOF
+$drop_table
+table inet devc {
+$(set_def dns "${dns[@]}")
+$(set_def allowed "${nets[@]}")
+  chain output {
+    type filter hook output priority filter; policy drop;
+    oifname "lo" accept
+    ct state established,related accept
+    ip daddr @dns udp dport 53 accept
     ip daddr @dns tcp dport 53 accept
-    ip daddr @allowed accept"
-  {
-    echo "$drop_tables"
-    echo "table inet devc {"
-    echo "$sets"
-    echo "  chain output {"
-    echo "    type filter hook output priority filter; policy drop;"
-    echo "    oifname \"lo\" accept"
-    echo "    ct state established,related accept"
-    echo "$allow"
-    echo "    meta l4proto tcp reject with tcp reset"
-    echo "    reject with icmpx admin-prohibited"
-    echo "  }"
-    echo "}"
-    if [[ ${#devices[@]} -gt 0 ]]; then
-      echo "table netdev devc {"
-      echo "$sets"
-      echo "  chain egress {"
-      echo "    type filter hook egress devices = { $device_list } priority 0; policy drop;"
-      echo "    meta protocol arp accept"
-      if [[ -n "$gateway" ]]; then
-        echo "    ip daddr $gateway tcp flags & (syn | ack) != syn accept"
-      fi
-      echo "$allow"
-      echo "  }"
-      echo "}"
-    fi
-  } | nft -f -
+    ip daddr @allowed accept
+    meta l4proto tcp reject with tcp reset
+    reject with icmpx admin-prohibited
+  }
+}
+EOF
   ;;
 unlock)
-  nft -f - <<<"$drop_tables"
+  nft -f - <<<"$drop_table"
   ;;
 status)
   if nft list table inet devc >/dev/null 2>&1; then
@@ -588,13 +574,17 @@ status)
 esac
 '
 
-# From `docker inspect` of the container: its privileges that let code in it change
-# the rules, comma-separated.
+# From `docker inspect` of the container, two lines: its privileges that let code in it
+# change the rules, comma-separated; then "raw" if it has NET_RAW (Docker grants it
+# unless dropped), which lets code get around them.
 NET_BYPASS_JQ="$CAPABILITY_JQ"'
-  [.HostConfig.CapAdd[]? | strings | cap_name
+  ([.HostConfig.CapAdd[]? | strings | cap_name
     | select(. == "NET_ADMIN" or grants_sys_admin)]
   + (if .HostConfig.Privileged == true then ["privileged mode"] else [] end)
-  | join(", ")'
+  | join(", ")),
+  (if ([.HostConfig.CapAdd[]? | strings | cap_name | select(. == "NET_RAW")] | length > 0)
+      or ([.HostConfig.CapDrop[]? | strings | cap_name | select(. == "NET_RAW" or . == "ALL")] | length == 0)
+    then "raw" else "" end)'
 
 # Reads .devcontainer/net-allow: one hostname, IPv4 address, or IPv4 CIDR per line,
 # with # comments. Prints "host <name>" or "net <address>" lines. Addresses must be
@@ -652,11 +642,11 @@ cmd_net() {
     exit 1
   fi
   local container_id="$container_ids"
-  local inspect image network_mode privileges
+  local inspect image network_mode privileges net_raw
   inspect=$(docker inspect --format '{{json .}}' "$container_id")
   image=$(jq -r '.Image' <<<"$inspect")
   network_mode=$(jq -r '.HostConfig.NetworkMode' <<<"$inspect")
-  privileges=$(jq -r "$NET_BYPASS_JQ" <<<"$inspect")
+  { read -r privileges; read -r net_raw; } < <(jq -r "$NET_BYPASS_JQ" <<<"$inspect")
 
   # The rules go into the container's network namespace, which with these modes is
   # the host's, another container's, or has no interfaces to filter
@@ -671,7 +661,11 @@ cmd_net() {
   if [[ "$action" == lock ]]; then
     local hosts=("${NET_ALLOW_HOSTS[@]}") nets=("${NET_ALLOW_NETS[@]}")
     local allow_file="$workspace_folder/.devcontainer/net-allow" kind value
-    if [[ -f "$allow_file" ]]; then
+    # A symlink could point into the workspace, where code in the container can write
+    if [[ -L "$allow_file" ]]; then
+      log_error "$allow_file is a symlink: make it a regular file."
+      exit 1
+    elif [[ -f "$allow_file" ]]; then
       local parsed
       parsed=$(read_net_allow "$allow_file") || exit 1
       while read -r kind value; do
@@ -717,24 +711,29 @@ cmd_net() {
     --cap-add NET_ADMIN --network "container:$container_id" --user root \
     --entrypoint bash "$image" -s -- "$action" ${entries[@]+"${entries[@]}"} \
     <<<"$NET_APPLY_SCRIPT") || status=$?
-  if [[ $status -eq 3 ]]; then
+  if [[ $status -eq 100 ]]; then
     log_error "The container's image has no nft. Rebuild it with the current template: devc template ., then devc rebuild."
     exit 1
   elif [[ $status -ne 0 ]]; then
-    log_error "Changing the rules failed (see nft's error above), so nothing changed."
+    log_error "Changing the rules failed (see the error above), so nothing changed."
     exit 1
   fi
 
-  local bypass_warning="code in the container can undo it, since it has $privileges. Recreate it with the current template: devc template ., then devc rebuild."
+  local bypass_warning=""
+  if [[ -n "$privileges" ]]; then
+    bypass_warning="code in the container can undo it, since it has $privileges. Recreate it with the current template: devc template ., then devc rebuild."
+  elif [[ "$net_raw" == raw ]]; then
+    bypass_warning="code in the container can get around it with raw sockets, since it has NET_RAW (see Raw sockets in the README)."
+  fi
   case "$action" in
   lock)
-    if [[ -n "$privileges" ]]; then
+    if [[ -n "$bypass_warning" ]]; then
       log_warn "Network locked, but $bypass_warning"
     else
       log_success "Network locked: only the allowed hosts and DNS are reachable."
     fi
     if [[ -n "$file_entries" ]]; then
-      log_info "Also allowed, from .devcontainer/net-allow: $file_entries"
+      log_info "Entries from .devcontainer/net-allow: $file_entries"
     fi
     log_info "It lasts until the container stops; run devc net lock again to refresh addresses."
     ;;
@@ -746,7 +745,7 @@ cmd_net() {
       log_info "Network is unlocked: outbound access is unrestricted."
     else
       log_info "Network is locked: only the allowed hosts and DNS are reachable."
-      if [[ -n "$privileges" ]]; then
+      if [[ -n "$bypass_warning" ]]; then
         log_warn "But $bypass_warning"
       fi
     fi
