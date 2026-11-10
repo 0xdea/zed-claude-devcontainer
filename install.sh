@@ -513,7 +513,8 @@ done
 # network namespace. Arguments: lock, unlock, or status; for lock, then "dns:<ip>" and
 # "<ip or CIDR>" entries. The rules live in an "inet devc" table, replaced in one
 # transaction. They see every packet because the container has no NET_RAW: raw sockets
-# (AF_PACKET, AF_XDP) send through kernel paths that skip them.
+# (AF_PACKET, AF_XDP) send through kernel paths that skip them. They don't accept
+# established connections, so that connections opened before locking stop too.
 # Exits with 100 if the image has no nft (nft uses 1 to 3 itself).
 # shellcheck disable=SC2016 # expanded by the container's bash
 NET_APPLY_SCRIPT='
@@ -551,7 +552,6 @@ $(set_def allowed "${nets[@]}")
   chain output {
     type filter hook output priority filter; policy drop;
     oifname "lo" accept
-    ct state established,related accept
     ip daddr @dns udp dport 53 accept
     ip daddr @dns tcp dport 53 accept
     ip daddr @allowed accept
@@ -702,6 +702,9 @@ cmd_net() {
       fail) log_warn "$value doesn't resolve, so it isn't allowed" ;;
       esac
     done <<<"$resolved"
+    if [[ "$resolved" != *"dns "* ]]; then
+      log_warn "No IPv4 DNS server found for the container, so name lookups will fail while locked."
+    fi
     entries+=("${nets[@]}")
   fi
 
@@ -743,11 +746,14 @@ cmd_net() {
   status)
     if [[ "$output" == unlocked ]]; then
       log_info "Network is unlocked: outbound access is unrestricted."
-    else
+    elif [[ "$output" == locked ]]; then
       log_info "Network is locked: only the allowed hosts and DNS are reachable."
       if [[ -n "$bypass_warning" ]]; then
         log_warn "But $bypass_warning"
       fi
+    else
+      log_error "Checking the rules gave an unexpected result: $output"
+      exit 1
     fi
     ;;
   esac

@@ -362,8 +362,8 @@ The trade-offs:
   DNS queries also leave the container.
 - **Only IPv4 is allowed out.** IPv6 is blocked, so tools fall back to IPv4.
 - **Anything else is blocked**, including Zed's downloads from hosts not listed, MCP servers, and package mirrors. Add
-  what you need to `net-allow` and run `devc net lock` again. Connections into the container, such as forwarded ports,
-  still work.
+  what you need to `net-allow` and run `devc net lock` again. So are connections opened before locking, and answers to
+  connections from outside the container, such as ports published with `-p`.
 - **Keep untrusted containers off Docker's default network.** The helper that resolves the hostnames runs there, and
   any container on it with `NET_RAW` (which Docker grants unless dropped) can pose as its gateway and get its own
   addresses allowed.
