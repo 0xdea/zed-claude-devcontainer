@@ -334,11 +334,11 @@ The allowlist:
   agent registry (`cdn.agentclientprotocol.com`, for installing and updating Zed's Claude agent), GitHub (`github.com`,
   its API, and its download hosts), `static.rust-lang.org`, crates.io, npm, and PyPI, plus Anthropic's and GitHub's
   published address ranges. They're in `NET_ALLOW_HOSTS` and `NET_ALLOW_NETS` in `install.sh`.
-- **Per project**: `.devcontainer/net-allow`, if present, with one hostname, IPv4 address, or IPv4 CIDR per line and
-  `#` comments. `devc template .` keeps it, and the container sees it read-only, so code in it can't add entries (a
-  symlink is refused, since it could point into the workspace). Lock only a project whose `.devcontainer` you trust: a
-  repository can ship its own `net-allow`, Dockerfile, or `devcontainer.json`. `devc net lock` lists the file's
-  entries.
+- **Per project**: `.devcontainer/net-allow`, if present, with one hostname, IPv4 address, or IPv4 CIDR per line and `#`
+  comments. `devc template .` keeps it, and the template mounts `.devcontainer` read-only, so code in the container
+  can't add entries (a symlinked `net-allow` or `.devcontainer` is refused, since it could point into the workspace).
+  Lock only a project whose `.devcontainer` you trust: a repository can ship its own `net-allow`, Dockerfile, or
+  `devcontainer.json`. `devc net lock` lists the file's entries.
 
 How it works: `devc` starts a short-lived helper container from the project's image that joins the dev container's
 network namespace, sets nftables rules there, and exits. The rules stay with the namespace. The dev container has no

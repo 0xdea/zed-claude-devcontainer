@@ -582,8 +582,8 @@ NET_BYPASS_JQ="$CAPABILITY_JQ"'
     | select(. == "NET_ADMIN" or grants_sys_admin)]
   + (if .HostConfig.Privileged == true then ["privileged mode"] else [] end)
   | join(", ")),
-  (if ([.HostConfig.CapAdd[]? | strings | cap_name | select(. == "NET_RAW")] | length > 0)
-      or ([.HostConfig.CapDrop[]? | strings | cap_name | select(. == "NET_RAW" or . == "ALL")] | length == 0)
+  (if any(.HostConfig.CapAdd[]? | strings | cap_name; . == "NET_RAW")
+      or (any(.HostConfig.CapDrop[]? | strings | cap_name; . == "NET_RAW" or . == "ALL") | not)
     then "raw" else "" end)'
 
 # Reads .devcontainer/net-allow: one hostname, IPv4 address, or IPv4 CIDR per line,
@@ -661,9 +661,10 @@ cmd_net() {
   if [[ "$action" == lock ]]; then
     local hosts=("${NET_ALLOW_HOSTS[@]}") nets=("${NET_ALLOW_NETS[@]}")
     local allow_file="$workspace_folder/.devcontainer/net-allow" kind value
-    # A symlink could point into the workspace, where code in the container can write
-    if [[ -L "$allow_file" ]]; then
-      log_error "$allow_file is a symlink: make it a regular file."
+    # A symlink, of the file or of .devcontainer, could point into the workspace, where
+    # code in the container can write
+    if [[ -L "$allow_file" ]] || [[ -L "$workspace_folder/.devcontainer" && -e "$allow_file" ]]; then
+      log_error "$allow_file is a symlink or in a symlinked .devcontainer: make both regular."
       exit 1
     elif [[ -f "$allow_file" ]]; then
       local parsed
