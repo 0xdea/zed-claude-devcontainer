@@ -8,6 +8,10 @@
 [![](https://img.shields.io/badge/mastodon-%40raptor-purple.svg)](https://infosec.exchange/@raptor)
 [![build](https://github.com/0xdea/zed-claude-devcontainer/actions/workflows/build.yml/badge.svg)](https://github.com/0xdea/zed-claude-devcontainer/actions/workflows/build.yml)
 
+> "It seems to me that my best ideas are accidents within a controlled context."
+>
+> -- Nick Cave
+
 > "Our robot overlords will use NUL-terminated strings."
 >
 > -- Matthew Garrett
