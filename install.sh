@@ -474,8 +474,9 @@ cmd_down() {
 # downloads from GitHub releases), GitHub, and the Rust, npm, and PyPI registries. Anthropic and GitHub also
 # publish their address ranges (NET_ALLOW_NETS), which don't change like resolved
 # addresses: GitHub moves its hosts between addresses in these ranges. GitHub's are the
-# ones its meta API (`gh api meta`) lists for web, api, and git, without the single
-# regional addresses, which resolving the hosts covers.
+# main ones its meta API (`gh api meta`) lists for web, api, and git; each lock also
+# fetches that list, whose regional addresses (e.g., in Azure, as on GitHub's runners)
+# change, and keeps these if fetching fails.
 NET_ALLOW_HOSTS=(
   api.anthropic.com claude.ai platform.claude.com downloads.claude.ai
   cdn.agentclientprotocol.com
@@ -492,7 +493,8 @@ NET_ALLOW_NETS=(
 # Runs in a fresh container on Docker's default network, not in the dev container's:
 # that one shares /etc/hosts and /etc/resolv.conf with the dev container, where root
 # could edit them to get its own addresses allowed. Prints "dns <ip>" for each IPv4
-# nameserver, then "ip <ip>" for each address of the hosts given, or "fail <host>".
+# nameserver, "ip <ip>" for each address of the hosts given, or "fail <host>", then
+# "ip <ip or CIDR>" for GitHub's IPv4 ranges from its meta API, or "github-meta-fail".
 # cmd_net gives it the DNS servers set for the dev container itself (--dns), so that
 # both use the same servers.
 # shellcheck disable=SC2016 # expanded by the container's bash
@@ -507,6 +509,13 @@ for host in "$@"; do
     printf "ip %s\n" $ips
   fi
 done
+meta=$(curl -fsS -m 10 https://api.github.com/meta |
+  jq -r '\''(.web + .git + .api)[] | select(contains(":") | not)'\'' | sort -u)
+if [[ -n "$meta" ]]; then
+  printf "ip %s\n" $meta
+else
+  echo "github-meta-fail"
+fi
 '
 
 # Runs as root with NET_ADMIN in a helper container that shares the dev container's
@@ -586,14 +595,16 @@ NET_BYPASS_JQ="$CAPABILITY_JQ"'
       or (any(.HostConfig.CapDrop[]? | strings | cap_name; . == "NET_RAW" or . == "ALL") | not)
     then "raw" else "" end)'
 
+# An IPv4 address or CIDR, exactly: nft would look up anything else as a hostname, with
+# the dev container's /etc/hosts
+NET_IPV4_OCTET='(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])'
+NET_IPV4_RE="^$NET_IPV4_OCTET(\\.$NET_IPV4_OCTET){3}(/(3[0-2]|[12]?[0-9]))?\$"
+
 # Reads .devcontainer/net-allow: one hostname, IPv4 address, or IPv4 CIDR per line,
-# with # comments. Prints "host <name>" or "net <address>" lines. Addresses must be
-# exact, since nft would look up anything else as a hostname, with the dev container's
-# /etc/hosts; hostnames that don't resolve get a warning.
+# with # comments. Prints "host <name>" or "net <address>" lines. Addresses must match
+# NET_IPV4_RE; hostnames that don't resolve get a warning.
 read_net_allow() {
   local file="$1" line lineno=0
-  local octet='(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])'
-  local ipv4="^$octet(\\.$octet){3}(/(3[0-2]|[12]?[0-9]))?\$"
   while IFS= read -r line || [[ -n "$line" ]]; do
     lineno=$((lineno + 1))
     line="${line%%#*}"
@@ -601,7 +612,7 @@ read_net_allow() {
     line="${line%"${line##*[![:space:]]}"}"
     if [[ -z "$line" ]]; then
       continue
-    elif [[ "$line" =~ $ipv4 ]]; then
+    elif [[ "$line" =~ $NET_IPV4_RE ]]; then
       echo "net $line"
     elif [[ "$line" =~ ^[0-9./]+$ ]]; then
       log_error "$file:$lineno: not an IPv4 address or CIDR: $line"
@@ -699,8 +710,9 @@ cmd_net() {
     while read -r kind value; do
       case "$kind" in
       dns) entries+=("dns:$value") ;;
-      ip) entries+=("$value") ;;
+      ip) if [[ "$value" =~ $NET_IPV4_RE ]]; then entries+=("$value"); fi ;;
       fail) log_warn "$value doesn't resolve, so it isn't allowed" ;;
+      github-meta-fail) log_warn "Fetching GitHub's address ranges failed, so only its main ranges are allowed" ;;
       esac
     done <<<"$resolved"
     if [[ "$resolved" != *"dns "* ]]; then

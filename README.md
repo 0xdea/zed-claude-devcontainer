@@ -341,7 +341,8 @@ The allowlist:
 - **Built in**: Claude Code (`api.anthropic.com`, `claude.ai`, `platform.claude.com`, `downloads.claude.ai`), Zed's
   agent registry (`cdn.agentclientprotocol.com`, for installing and updating Zed's Claude agent), GitHub (`github.com`,
   its API, and its download hosts), `static.rust-lang.org`, crates.io, npm, and PyPI, plus Anthropic's and GitHub's
-  published address ranges. They're in `NET_ALLOW_HOSTS` and `NET_ALLOW_NETS` in `install.sh`.
+  published address ranges. They're in `NET_ALLOW_HOSTS` and `NET_ALLOW_NETS` in `install.sh`; GitHub's full list,
+  with its regional addresses, is also fetched from its meta API at each lock.
 - **Per project**: `.devcontainer/net-allow`, if present, with one hostname, IPv4 address, or IPv4 CIDR per line and `#`
   comments. `devc template .` keeps it, and the template mounts `.devcontainer` read-only, so code in the container
   can't add entries (a symlinked `net-allow` or `.devcontainer` is refused, since it could point into the workspace).
