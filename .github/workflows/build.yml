@@ -123,6 +123,7 @@ jobs:
             rustup target list --installed | grep -Fx wasm32-wasip2 >/dev/null
             git lfs version
             clang --version
+            clangd --version
             # bindgen loads libclang at run time and parses C++ headers like this
             ls /usr/lib/llvm-*/lib/libclang.so >/dev/null
             echo "#include <string>" | clang++ -xc++ -std=c++17 -fsyntax-only -

@@ -25,8 +25,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   build-essential \
   libssl-dev \
   pkg-config \
-  # Clang and libclang for bindgen/autocxx
+  # Clang, clangd (the C/C++ language server, same LLVM version), and libclang for
+  # bindgen/autocxx
   clang \
+  clangd \
   libclang-dev \
   # Git LFS: host git configs set up by `git lfs install` make it required, so checking out
   # a repository with LFS files fails without it

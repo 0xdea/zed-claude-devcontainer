@@ -44,8 +44,8 @@ Changes from upstream:
   [cargo-binstall](https://github.com/cargo-bins/cargo-binstall) from each project's release binaries (compiling from
   crates.io as a fallback, without QuickInstall builds or telemetry); [zizmor](https://github.com/zizmorcore/zizmor)
   and [hcli](https://github.com/HexRaysSA/ida-hcli) via uv, which installs their newest releases that are at least 10
-  days old; `libxdo-dev` and `xvfb` for GUI automation and tests on a virtual display; Clang and libclang for
-  bindgen-based crates; Git LFS, which a host git config set up by `git lfs install` requires.
+  days old; `libxdo-dev` and `xvfb` for GUI automation and tests on a virtual display; Clang, clangd, and libclang
+  for C/C++ editing and bindgen-based crates; Git LFS, which a host git config set up by `git lfs install` requires.
 - **Dotfiles** (optional): cloned from the host's `DEVC_DOTFILES_REPO` and stowed (see [Dotfiles](#dotfiles)).
 - **IDA Pro** (optional): hcli, and instructions for installing a headless IDA Pro in the container with your own
   license (see [IDA Pro](#ida-pro-optional)).
