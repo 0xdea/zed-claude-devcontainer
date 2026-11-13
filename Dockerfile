@@ -174,9 +174,11 @@ RUN curl -fsSL https://fnm.vercel.app/install | bash -s -- --install-dir "$FNM_D
 ENV PATH="$FNM_DIR/aliases/default/bin:$PATH"
 
 # Install Rust via rustup (stable, minimal profile + common components, wasm32-wasip2
-# target for Zed extensions)
+# target for Zed extensions). Docker's overlay filesystem can't rename directories from
+# image layers, which rustup update does, so let rustup copy them instead
 ENV RUSTUP_HOME="/home/vscode/.rustup" \
-  CARGO_HOME="/home/vscode/.cargo"
+  CARGO_HOME="/home/vscode/.cargo" \
+  RUSTUP_PERMIT_COPY_RENAME=1
 RUN curl --proto '=https' --tlsv1.2 -fsSL https://sh.rustup.rs | \
   sh -s -- -y --no-modify-path --profile minimal --default-toolchain stable \
     --component rustfmt,clippy,rust-analyzer --target wasm32-wasip2
