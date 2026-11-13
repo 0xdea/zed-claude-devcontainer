@@ -254,6 +254,34 @@ trust, limit it to the repositories you need and omit **Workflows**.
 can only be revoked by removing the **GitHub CLI** authorization (Settings → Applications), which signs out every `gh`
 login, including on the host.
 
+## Publishing crates
+
+`cargo login` in the container saves the token in `~/.cargo/credentials.toml`, in the container's own filesystem:
+`devc rebuild` and `devc mount` lose it, and anything in the container can read it. So publish from the host, in the
+same project folder:
+
+```sh
+CARGO_TARGET_DIR=$(mktemp -d) cargo publish   # skips target/, which the container shares
+```
+
+The container can write to the project folder, and `cargo publish` packages its files and builds them on the host,
+running their `build.rs` and proc macros. Check what goes out first (`git status`, `cargo package --list`). For
+projects with code you don't trust, publish from a fresh clone of a reviewed tag instead:
+
+```sh
+git clone --depth 1 --branch v1.2.3 https://github.com/you/crate /tmp/crate && cd /tmp/crate && cargo publish
+```
+
+Not done, for now:
+
+- `credentials.toml` on a per-project volume, like the `gh` login: a template change, and the token is still readable
+  in the container.
+- `CARGO_REGISTRY_TOKEN` from the host's environment: every container gets it, in every process's environment and in
+  Zed's database.
+
+If you publish from the container anyway, use a scoped crates.io token (publish-update, only your crates, with an
+expiry), and `cargo logout` afterwards.
+
 ## IDA Pro (optional)
 
 The container can run IDA Pro headlessly, through [idalib](https://github.com/idalib-rs/idalib) or IDA's own
