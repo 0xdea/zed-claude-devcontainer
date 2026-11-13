@@ -274,6 +274,9 @@ git clone --depth 1 --branch v1.2.3 https://github.com/you/crate /tmp/crate && c
 
 Not done, for now:
 
+- A symlink from `~/.cargo/credentials.toml` into the `gh` volume (`~/.config/gh`), which survives rebuilds: one
+  Dockerfile line (cargo writes through the link), but it mixes cargo's file into `gh`'s folder, and the token is still
+  readable in the container.
 - `credentials.toml` on a per-project volume, like the `gh` login: a template change, and the token is still readable
   in the container.
 - `CARGO_REGISTRY_TOKEN` from the host's environment: every container gets it, in every process's environment and in
