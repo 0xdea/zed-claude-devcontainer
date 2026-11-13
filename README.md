@@ -209,10 +209,12 @@ reason, uv comes from Docker Hub rather than ghcr.io, which gives Renovate no re
 | The image                                           | Kept                   | Rebuilt              | **Deleted**         |
 | Zed's thread list                                   | Kept                   | Older threads hidden | Transcripts deleted |
 
-"Claude data" is its login, settings, sessions, and memory. `post_install.py` rewrites its files, such as
+Each project has three volumes, named `devc-<project>-<name>-<id>`: `bashhistory` at `/commandhistory`, with every
+shell's history despite its name; `config` at `~/.claude`, with Claude Code's login, settings, sessions, and memory; and
+`gh` at `~/.config/gh`, with the `gh` login. `post_install.py` rewrites the files it creates, such as
 `~/.gitconfig.local`, in each new container, and erased caches are downloaded again when needed. To keep a tool across
-rebuilds, add it to the `Dockerfile`. For the hidden threads, see
-[Known issues](#agent-threads-disappear-after-a-rebuild).
+rebuilds, add it to the `Dockerfile`. For the hidden threads, see [Known
+issues](#agent-threads-disappear-after-a-rebuild).
 
 ## GitHub access
 
