@@ -494,15 +494,15 @@ set -Ux DEVC_DOTFILES_REPO https://github.com/<you>/dotfiles.git
 
 or with `export` in your zsh or bash profile. `devcontainer.json` passes it to the build, which clones the repository
 and stows it into `~`. Since the template reads it from the host, it survives `devc template .`, and a change takes
-effect at the next `devc rebuild`. Without it, fish, Neovim, and tmux run with their defaults, plus
+effect at the next `devc rebuild`. Without it, Cargo, fish, Neovim, and tmux run with their defaults, plus
 `devcontainer.fish` and the tmux config below.
 
 - The variable must be set in the shell that runs `devc`: an image built without it has no dotfiles. `devc .` and
   `devc rebuild` say so when it isn't.
 - The repository must be cloneable over HTTPS without credentials, since the build has no SSH keys. Don't put a
   token in the URL: build arguments are visible in the image's history, and the URL in the clone's git config.
-- Its `fish`, `nvim`, and `tmux` packages are stowed if present, each laid out like your home folder (such as
-  `fish/.config/fish/config.fish`). The build fails if it has none of them and no `claude` package. To change the
+- Its `cargo`, `fish`, `nvim`, and `tmux` packages are stowed if present, each laid out like your home folder (such
+  as `fish/.config/fish/config.fish`). The build fails if it has none of them and no `claude` package. To change the
   set, edit the `for` loop in the `Dockerfile`.
 - If it has no tmux config (`~/.tmux.conf` or `~/.config/tmux/tmux.conf`), `post_install.py` writes a default one.
 - An optional `claude` package is stowed into the `~/.claude` volume when the container is created. If it includes
@@ -517,7 +517,7 @@ effect at the next `devc rebuild`. Without it, fish, Neovim, and tmux run with t
 
   ```sh
   git -C ~/.dotfiles pull
-  stow --no-folding -R -d ~/.dotfiles -t ~ fish nvim tmux   # only the packages your repository has
+  stow --no-folding -R -d ~/.dotfiles -t ~ cargo fish nvim tmux   # only the packages your repository has
   ```
 
 ## Known issues

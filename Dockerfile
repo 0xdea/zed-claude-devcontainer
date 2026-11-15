@@ -218,11 +218,11 @@ RUN if [ -n "$DOTFILES_REPO" ]; then \
     set -e; \
     git clone -- "$DOTFILES_REPO" /home/vscode/.dotfiles; \
     pkgs=""; \
-    for pkg in fish nvim tmux; do \
+    for pkg in cargo fish nvim tmux; do \
       if [ -d "/home/vscode/.dotfiles/$pkg" ]; then pkgs="$pkgs $pkg"; fi; \
     done; \
     if [ -z "$pkgs" ] && [ ! -d /home/vscode/.dotfiles/claude ]; then \
-      echo "$DOTFILES_REPO has no fish, nvim, tmux, or claude package" >&2; \
+      echo "$DOTFILES_REPO has no cargo, fish, nvim, tmux, or claude package" >&2; \
       exit 1; \
     fi; \
     if [ -n "$pkgs" ]; then stow --no-folding -d /home/vscode/.dotfiles -t /home/vscode $pkgs; fi; \
