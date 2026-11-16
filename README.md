@@ -38,8 +38,8 @@ Changes from upstream:
 - **Zed**: the VS Code customizations are removed, and these docs cover Zed and the terminal.
 - **Project path**: projects are mounted at `/workspaces/<folder name>`, not `/workspace`, so Zed shows each project's
   name.
-- **umask**: fish, zsh, and interactive bash restore umask `022`, because some engines start `docker exec` processes
-  with `0000` (see [Known issues](#world-writable-files-on-the-host)).
+- **umask**: fish, zsh, interactive bash, and `post_install.py` restore umask `022`, because some engines start
+  `docker exec` processes with `0000` (see [Known issues](#world-writable-files-on-the-host)).
 - **fish**: the login shell, `$SHELL`, and `devc shell` default, with `.zshrc`'s aliases and fzf integration in
   `devcontainer.fish` and history on the `/commandhistory` volume. Claude Code's Bash tool still uses zsh.
 - **Tools**: Neovim from GitHub releases (Ubuntu's is too old for lazy.nvim); Rust via rustup with `rustfmt`,
