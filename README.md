@@ -589,5 +589,5 @@ After a change, run `./install.sh template ~/devc-test` again and `devc rebuild`
 run the working copy's script instead of `devc`. Clean up with `devc destroy -f`.
 
 The `build` workflow runs on pushes and pull requests, except for changes that only touch `*.md`, `LICENSE`,
-`.gitignore`, or `renovate.json`. Renovate opens one grouped pull request on Mondays and lists pending updates in its
+`.gitignore`, or `renovate.json`. Renovate opens one grouped pull request on Fridays and lists pending updates in its
 Dependency Dashboard issue; merge the pull request once `build` passes.
