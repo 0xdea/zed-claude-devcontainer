@@ -2,8 +2,8 @@
 # Based on Microsoft devcontainer image for better devcontainer integration
 # uv from Docker Hub rather than ghcr.io (same images and digests): Docker Hub gives Renovate
 # release dates, so its 10-day minimum release age applies, while ghcr.io updates would wait forever
-FROM astral/uv:0.13.6@sha256:af22a52f5eafef3d78e551599d405c02df61919d18028f0cea8eda93bc9986d0 AS uv
-FROM mcr.microsoft.com/devcontainers/base:ubuntu24.04@sha256:ec556aed93f62aa6d13fe72c5db09da4e29a7c9b87c568dbca0ee5717466926a
+FROM astral/uv:0.13.7@sha256:96f40d3904aad8d0bd010539001d36c8e2188b981e1334471a90c4a1d93bb490 AS uv
+FROM mcr.microsoft.com/devcontainers/base:ubuntu24.04@sha256:48be4adec1c1ecbe030064700aef85382f5205786a8f82937fc44a7473717eae
 
 ARG TZ
 ENV TZ="$TZ"
@@ -190,7 +190,7 @@ ENV PATH="$CARGO_HOME/bin:$PATH"
 # back to compiling from crates.io (no QuickInstall third-party builds or statistics,
 # and no GitHub token lookup)
 # renovate: datasource=github-releases depName=cargo-bins/cargo-binstall
-ARG CARGO_BINSTALL_VERSION=1.26.1
+ARG CARGO_BINSTALL_VERSION=1.26.2
 RUN curl -fsSL "https://github.com/cargo-bins/cargo-binstall/releases/download/v${CARGO_BINSTALL_VERSION}/cargo-binstall-$(uname -m)-unknown-linux-musl.tgz" | \
     tar -xz -C "$CARGO_HOME/bin" && \
   cargo binstall -y --locked --strategies crate-meta-data,compile --disable-telemetry --no-discover-github-token \
