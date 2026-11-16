@@ -1157,10 +1157,11 @@ cmd_update() {
     log_success "Already up to date"
   else
     log_success "Updated from ${before_sha:0:7} to ${after_sha:0:7}"
-    # What changed, without merges, docs, and Renovate's dependency updates
+    # What changed, without merges, docs, CI, style, and Renovate's dependency updates
     local changes
     changes=$(git -C "$SCRIPT_DIR" log --oneline --no-merges -E --invert-grep \
-      --grep='^docs?(\(.*\))?!?:' --grep='^chore\(deps\)' "$before_sha..$after_sha")
+      --grep='^docs?(\(.*\))?!?:' --grep='^(ci|style)(\(.*\))?!?:' --grep='^chore\(deps\)' \
+      "$before_sha..$after_sha")
     if [[ -n "$changes" ]]; then
       log_info "Changes:"
       echo "$changes"
