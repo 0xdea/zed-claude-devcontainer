@@ -26,7 +26,7 @@ enabled, from [Zed](https://zed.dev) or a terminal. Designed for security audits
 ## About this fork
 
 Based on [trailofbits/claude-code-devcontainer](https://github.com/trailofbits/claude-code-devcontainer) (Apache
-License 2.0).
+License 2.0). Upstream was archived in November 2026, so this fork is maintained on its own.
 
 > [!TIP]
 > The [upstream README](https://github.com/trailofbits/claude-code-devcontainer#readme) covers what this one doesn't:
