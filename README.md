@@ -57,6 +57,8 @@ Changes from upstream:
   the container can't change or get around, since it no longer gets `NET_ADMIN` or `NET_RAW` (see
   [Network isolation](#network-isolation) and [Raw sockets](#raw-sockets)).
 - **`devc rebuild --no-cache`**: rebuilds without Docker's build cache, still running `devc`'s checks.
+- **Privacy**: Claude Code's telemetry, error reporting, and feedback surveys are off (`containerEnv` in
+  `devcontainer.json`). Auto-updates stay on.
 - **Claude Code's stable channel**: installed and updated (automatically and by `devc upgrade`) from the stable
   channel, which lags behind latest. To follow latest, set `"autoUpdatesChannel": "latest"` in
   `~/.claude/settings.json`.

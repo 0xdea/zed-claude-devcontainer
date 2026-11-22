@@ -82,6 +82,10 @@ jobs:
             claude --version
             jq -e ".permissions.defaultMode == \"bypassPermissions\"" ~/.claude/settings.json
             jq -e ".autoUpdatesChannel == \"stable\"" ~/.claude/settings.json
+            # Claude Code telemetry, error reporting, and feedback surveys are off
+            test "${DISABLE_TELEMETRY:-}" = 1
+            test "${DISABLE_ERROR_REPORTING:-}" = 1
+            test "${CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY:-}" = 1
             test -f ~/.gitconfig.local
             # dotfiles are opt-in, and CI sets no DEVC_DOTFILES_REPO
             test ! -e ~/.dotfiles
