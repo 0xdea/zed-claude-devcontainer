@@ -56,6 +56,8 @@ Changes from upstream:
 - **Network isolation**: `devc net lock|unlock|status` limits outbound access to an allowlist, with rules that code in
   the container can't change or get around, since it no longer gets `NET_ADMIN` or `NET_RAW` (see
   [Network isolation](#network-isolation) and [Raw sockets](#raw-sockets)).
+- **Project setup script** (optional): a project's `.devcontainer/project_setup.sh` runs in every new container and
+  survives `devc template .` (see [Project setup script](#project-setup-script)).
 - **`devc rebuild --no-cache`**: rebuilds without Docker's build cache, still running `devc`'s checks.
 - **Claude Code's stable channel**: installed and updated (automatically and by `devc upgrade`) from the stable
   channel, which lags behind latest. To follow latest, set `"autoUpdatesChannel": "latest"` in
@@ -147,9 +149,12 @@ run inside it. Without Zed, `devc shell` opens a fish shell in the container.
 
 > [!WARNING]
 > Only open projects whose `.devcontainer/` came from `devc`. If a repository ships its own, `devc .` asks before
-> replacing it; answer `y`. Otherwise Zed uses the repository's `devcontainer.json`, which can run commands on your
-> host (`initializeCommand`), mount host folders, weaken the container's isolation, and install extensions in your
-> local Zed (`customizations.zed.extensions`, see the [Zed docs](https://zed.dev/docs/dev-containers)).
+> replacing it; answer `y`. Otherwise Zed uses the repository's `devcontainer.json`, which can run commands on your host
+> (`initializeCommand`), mount host folders, weaken the container's isolation, and install extensions in your local Zed
+> (`customizations.zed.extensions`, see the [Zed docs](https://zed.dev/docs/dev-containers)). A `project_setup.sh` in a
+> repository's `.devcontainer/` means that it didn't come from `devc`, even if the other files match: it runs in every
+> new container, also without `devc .` (see [Project setup script](#project-setup-script)), so answer `n` when `devc .`
+> asks to keep it.
 
 ## Updating and rebuilding
 
@@ -164,8 +169,9 @@ Run these on the host, in the project folder. Zed never rebuilds the container b
 | Start over with empty volumes                                            | `devc destroy`, then `devc .`                    |
 
 - `devc update` updates `devc` and the template in `~/.claude-devcontainer`; projects aren't touched.
-- `devc template .` replaces the project's `.devcontainer/` after asking. It keeps only mounts added with
-  `devc mount` and the [raw sockets](#raw-sockets) choice, and removes the `.git` mounts again in a non-git workspace.
+- `devc template .` replaces the template's files in the project's `.devcontainer/` after asking. It keeps mounts added
+  with `devc mount`, the [raw sockets](#raw-sockets) choice, and, if you say so, the [project setup
+  script](#project-setup-script), leaves other files alone, and removes the `.git` mounts again in a non-git workspace.
 - `devc rebuild` rebuilds the image and recreates the container. Docker reuses cached steps that haven't changed, and
   its cache is shared across projects, so steps that install the latest version of a tool only rerun with
   `--no-cache`, which is slow. Versions pinned in the repository change only through Renovate (see
@@ -213,8 +219,8 @@ Each project has three volumes, named `devc-<project>-<name>-<id>`: `bashhistory
 shell's history despite its name; `config` at `~/.claude`, with Claude Code's login, settings, sessions, and memory; and
 `gh` at `~/.config/gh`, with the `gh` login. `post_install.py` rewrites the files it creates, such as
 `~/.gitconfig.local`, in each new container, and erased caches are downloaded again when needed. To keep a tool across
-rebuilds, add it to the `Dockerfile`. For the hidden threads, see [Known
-issues](#agent-threads-disappear-after-a-rebuild).
+rebuilds, add it to the `Dockerfile` or the [project setup script](#project-setup-script). For the hidden threads, see
+[Known issues](#agent-threads-disappear-after-a-rebuild).
 
 ## GitHub access
 
@@ -426,6 +432,7 @@ that skip its rules. Don't run untrusted code in such a project.
 | --------------------------------------------------------------------------- | -------------------------- |
 | Inside the container, such as `devc exec sudo apt-get install -y <package>` | The container is recreated |
 | The project's `.devcontainer/`, then `devc rebuild`                         | The next `devc template .` |
+| The project's `.devcontainer/project_setup.sh`                              | Always                     |
 | Your fork of this repository                                                | Always                     |
 
 The `Dockerfile`'s build arguments are `NODE_VERSION`, `PYTHON_VERSION`, `NEOVIM_VERSION`, `FZF_VERSION`,
@@ -454,6 +461,19 @@ devc update
 
 Commit to the fork, not to `~/.claude-devcontainer`: `devc update` pulls with `--ff-only`, which fails once the two
 diverge. Merge this repository into your fork to get later changes.
+
+### Project setup script
+
+A project's `.devcontainer/project_setup.sh`, if present, runs with `bash` as the last step of `post_install.py`, in
+every new container: SDKs, toolchains, or dependencies that one project needs. `devc template .` keeps it, unlike
+changes to the `Dockerfile`, but asks first, and otherwise renames it to `project_setup.sh.disabled.<random>`. It runs
+as `vscode` (with passwordless sudo) from the project folder, without input (so use `apt-get install -y`), so make it
+safe to run again, and it runs on every rebuild without Docker's cache, so put heavy installs in your fork instead.
+Start it with `set -euo pipefail`, or only a failure of its last command fails creating the container; when it fails,
+fix it and run `devc rebuild`. To try it without rebuilding, run `devc exec bash .devcontainer/project_setup.sh`. Don't
+run files from the project in it, such as `npm ci` or `pip install -r requirements.txt`: code in the container can
+change them, and they would then run in every new container. Changes to it that arrive through git, such as with `git
+pull`, run at the next rebuild without asking, so check them first.
 
 ### Cross-compiling
 

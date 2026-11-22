@@ -292,6 +292,23 @@ cmd_template() {
       exit 0
     fi
 
+    # Not in the template: the user's or the repository's (see the README's "Project setup script")
+    local setup_script="$devcontainer_dir/project_setup.sh"
+    if [[ -e "$setup_script" || -L "$setup_script" ]]; then
+      log_warn "Found $setup_script, which runs in every new container, with your logins"
+      # Without input (such as piped answers that run out), the answer is no
+      read -p "Keep it? [y/N] " -n 1 -r || REPLY=
+      echo
+      if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        # Renamed, not deleted: it may be the user's own, and not committed. To a new file
+        # from mktemp, since mv would follow a symlink that the repository put at a fixed name
+        local disabled
+        disabled=$(mktemp "$setup_script.disabled.XXXXXX")
+        mv -f "$setup_script" "$disabled"
+        log_info "Renamed it to $(basename "$disabled"), which doesn't run"
+      fi
+    fi
+
     # Preserve custom mounts before overwriting
     preserved_mounts=$(extract_mounts_to_file "$devcontainer_json")
     if [[ -n "$preserved_mounts" ]]; then

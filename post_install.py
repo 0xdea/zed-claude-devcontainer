@@ -9,11 +9,13 @@ Runs on container creation to set up:
 - Tmux configuration (200k history, mouse support)
 - Fish history directory on the /commandhistory volume
 - Global gitignore and container-local git config
+- The project's .devcontainer/project_setup.sh, if any
 """
 
 import contextlib
 import json
 import os
+import stat
 import subprocess
 import sys
 from pathlib import Path
@@ -427,6 +429,44 @@ def setup_claude_dotfiles():
     print("[post_install] Claude dotfiles stowed", file=sys.stderr)
 
 
+def run_project_setup():
+    """Run the project's .devcontainer/project_setup.sh, if it has one.
+
+    Lifecycle commands run in the workspace folder. .devcontainer is mounted
+    read-only, so code in the container can't change the script; devc template
+    keeps it if the user says so. A failure fails container creation.
+    """
+    cwd = Path.cwd()
+    script = cwd / ".devcontainer" / "project_setup.sh"
+    try:
+        mode = script.lstat().st_mode
+    except FileNotFoundError:
+        # Started outside the project folder, it can't tell which script is the
+        # project's: say so only if there is one
+        if not cwd.is_relative_to("/workspaces") and any(
+            Path("/workspaces").glob("*/.devcontainer/project_setup.sh")
+        ):
+            print(
+                f"[post_install] Warning: running in {cwd}, not the project "
+                "folder, so project_setup.sh was skipped",
+                file=sys.stderr,
+            )
+        return
+    if not stat.S_ISREG(mode):
+        print(f"[post_install] {script} is not a regular file", file=sys.stderr)
+        sys.exit(1)
+    print(f"[post_install] Running {script}...", file=sys.stderr)
+    # No stdin, so a command that asks for input fails instead of waiting
+    rc = subprocess.run(
+        ["bash", str(script)], stdin=subprocess.DEVNULL, check=False
+    ).returncode
+    if rc != 0:
+        how = f"killed by signal {-rc}" if rc < 0 else f"failed with exit code {rc}"
+        print(f"[post_install] {script} {how}", file=sys.stderr)
+        sys.exit(max(rc, 1))
+    print("[post_install] Project setup complete", file=sys.stderr)
+
+
 def main():
     """Run all post-install configuration."""
     # Some engines (e.g., OrbStack, orbstack/orbstack#2759) start docker exec processes,
@@ -444,6 +484,8 @@ def main():
     setup_tmux_config()
     setup_fish_history()
     setup_global_gitignore()
+    # Last, so the project's script finds everything above in place
+    run_project_setup()
 
     print("[post_install] Configuration complete!", file=sys.stderr)
 

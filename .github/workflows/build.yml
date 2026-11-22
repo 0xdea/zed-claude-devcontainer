@@ -70,6 +70,8 @@ jobs:
           mkdir -p "$RUNNER_TEMP/ws"
           git -C "$RUNNER_TEMP/ws" init -q
           ./install.sh template "$RUNNER_TEMP/ws"
+          # a project setup script, which post_install.py runs from the project folder
+          echo 'touch project-setup-ran' >"$RUNNER_TEMP/ws/.devcontainer/project_setup.sh"
       - name: build and start container
         run: ./install.sh up "$RUNNER_TEMP/ws"
       - name: check container
@@ -86,6 +88,7 @@ jobs:
             # dotfiles are opt-in, and CI sets no DEVC_DOTFILES_REPO
             test ! -e ~/.dotfiles
             test -f ~/.tmux.conf
+            test -f project-setup-ran
             test "$(git config --global --get core.checkStat)" = minimal
             test "$(git config --global --get core.trustctime)" = false
             git config --global --get-all credential.https://github.com.helper | grep -Fx "!gh auth git-credential" >/dev/null
@@ -205,8 +208,18 @@ jobs:
 
           # devc template keeps the raw sockets opt-in
           sed -i "s/--cap-drop=NET_RAW/--cap-add=NET_RAW/" "$ws/.devcontainer/devcontainer.json"
-          echo y | ./install.sh template "$ws"
+          # (y: overwrite, y: keep the project setup script)
+          printf yy | ./install.sh template "$ws"
           jq -e ".runArgs | index(\"--cap-add=NET_RAW\")" "$ws/.devcontainer/devcontainer.json"
+          # and the project setup script if asked, renaming it otherwise, also when the
+          # answers run out
+          test -f "$ws/.devcontainer/project_setup.sh"
+          printf yn | ./install.sh template "$ws"
+          test ! -e "$ws/.devcontainer/project_setup.sh"
+          cp "$ws"/.devcontainer/project_setup.sh.disabled.* "$ws/.devcontainer/project_setup.sh"
+          echo y | ./install.sh template "$ws"
+          test ! -e "$ws/.devcontainer/project_setup.sh"
+          test "$(find "$ws/.devcontainer" -name "project_setup.sh.disabled.*" | wc -l)" -eq 2
 
   zizmor:
     name: zizmor

@@ -7,7 +7,7 @@ Fork of trailofbits/claude-code-devcontainer: a Zed-focused dev container for Cl
 
 - `install.sh`: the `devc` CLI. `devc template .` copies `Dockerfile`, `devcontainer.json`, `post_install.py`, `.zshrc`,
   and `devcontainer.fish` into a project's `.devcontainer/`, keeping `devc mount` mounts and the `--cap-add=NET_RAW`
-  opt-in.
+  opt-in. It leaves other files there, such as `project_setup.sh`, which `post_install.py` runs last.
 - `post_install.py`: runs in the container after creation (`postCreateCommand`).
 - `renovate.json`: pinned versions update with a 10-day minimum release age; unpinned tools follow the same rule
   (`UV_EXCLUDE_NEWER`, npm `--before`).
